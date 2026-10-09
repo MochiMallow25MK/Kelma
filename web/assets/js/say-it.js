@@ -1,5 +1,5 @@
 // Say It & Collect It – game logic (words come from the AI agent via PHP)
-var API = '/kelma/web/api/';
+var API = '/kelma/kelma/web/api/';
 var words = [], index = 0, fails = 0, stars = 0, plan = null;
 var $ = function (id) { return document.getElementById(id); };
 
@@ -141,7 +141,7 @@ function nextWord() {
   if (index >= words.length) {
     $('progressFill').style.width = '100%';
     $('gameArea').innerHTML = '<div class="picture">🏆</div><h2>All done! You collected ' + stars + ' stars!</h2>' +
-      '<a class="btn btn-coral btn-big" href="/kelma/web/games/say-it.php">Play again</a>';
+      '<a class="btn btn-coral btn-big" href="/kelma/kelma/web/games/say-it.php">Play again</a>';
     $('recordZone').style.display = 'none';
     $('cueBox').style.display = 'none';
     return;

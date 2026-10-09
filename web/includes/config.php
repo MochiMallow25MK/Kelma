@@ -24,7 +24,7 @@ function e($text) { return htmlspecialchars($text, ENT_QUOTES, 'UTF-8'); }
 // Send the visitor to the login page unless they have the right role
 function require_role($role) {
     if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== $role) {
-        header('Location: /kelma/web/login.php');
+        header('Location: /kelma/kelma/web/login.php');
         exit;
     }
 }

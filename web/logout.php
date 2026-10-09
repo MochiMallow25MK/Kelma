@@ -1,4 +1,4 @@
 <?php
 session_start();
 session_destroy();
-header('Location: /kelma/web/index.php');
+header('Location: /kelma/kelma/web/index.php');

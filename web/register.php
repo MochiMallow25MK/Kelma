@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bind_param('is', $parent_id, $child);
                 $stmt->execute();
             }
-            header('Location: /kelma/web/login.php?registered=1');
+            header('Location: /kelma/kelma/web/login.php?registered=1');
             exit;
         }
         $error = 'This email is already registered.';
@@ -48,7 +48,7 @@ require 'includes/header.php';
       <div id="childField"><label>Child's first name</label><input type="text" name="child_name"></div>
       <p><button class="btn btn-coral btn-big" type="submit">Register</button></p>
     </form>
-    <p>Already have an account? <a href="/kelma/web/login.php">Login</a></p>
+    <p>Already have an account? <a href="/kelma/kelma/web/login.php">Login</a></p>
   </div>
 </div>
 <script>

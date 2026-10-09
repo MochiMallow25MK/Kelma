@@ -27,7 +27,7 @@ require 'includes/header.php';
     <?php else: ?>
       <p>No plan yet. Start a game and the agent will choose the first words.</p>
     <?php endif; ?>
-    <a class="btn btn-coral btn-big" href="/kelma/web/games/say-it.php">▶ Start Play: Say It &amp; Collect It</a>
+    <a class="btn btn-coral btn-big" href="/kelma/kelma/web/games/say-it.php">▶ Start Play: Say It &amp; Collect It</a>
   </div>
   <p><i>More games, charts, and activity suggestions arrive in later milestones.</i></p>
 </div>

@@ -4,7 +4,7 @@ require '../includes/header.php';
 ?>
 <div class="container">
   <div class="game-top">
-    <a class="btn btn-yellow" href="/kelma/web/parent_dashboard.php">‹ Back</a>
+    <a class="btn btn-yellow" href="/kelma/kelma/web/parent_dashboard.php">‹ Back</a>
     <b id="progressText">Loading...</b>
     <span class="badge" style="font-size:1.3rem">⭐ Stars: <span id="stars">0</span></span>
   </div>
@@ -28,5 +28,5 @@ require '../includes/header.php';
     <button class="btn btn-mint" id="cueSoundBtn">🔊 Hear the sound</button>
   </div>
 </div>
-<script src="/kelma/web/assets/js/say-it.js"></script>
+<script src="/kelma/kelma/web/assets/js/say-it.js"></script>
 <?php require '../includes/footer.php'; ?>

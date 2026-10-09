@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['child_id']   = $c['id'] ?? null;
             $_SESSION['child_name'] = $c['name'] ?? '';
         }
-        header('Location: /kelma/web/' . $role . '_dashboard.php');   // automatic routing by role
+        header('Location: /kelma/kelma/web/' . $role . '_dashboard.php');   // automatic routing by role
         exit;
     }
     $error = 'Wrong email, password, or account role. Please try again.';
@@ -49,7 +49,7 @@ require 'includes/header.php';
       </div>
       <p><button class="btn btn-coral btn-big" type="submit">Sign In to Dashboard</button></p>
     </form>
-    <p>Need an account? <a href="/kelma/web/register.php">Register</a></p>
+    <p>Need an account? <a href="/kelma/kelma/web/register.php">Register</a></p>
   </div>
 </div>
 <?php require 'includes/footer.php'; ?>
