@@ -2,18 +2,19 @@
 // Shared setup: session, database connection, and small helper functions.
 session_start();
 
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');      // XAMPP default
-define('DB_PASS', '');          // XAMPP default (empty)
+define('DB_SERVER', '127.0.0.1');
+define('DB_USERNAME', 'root');
+define('DB_PASSWORD', '');
 define('DB_NAME', 'kelma');
-define('AGENT_URL', 'http://127.0.0.1:8001'); // Python agent service
-define('PASS_SCORE', 60);       // diagnostic score needed to count a word as correct
+define('PORT', 3307);
+define('AGENT_URL', 'http://127.0.0.1:8001');
+define('PASS_SCORE', 60);
 
 if (file_exists(__DIR__ . '/config.local.php')) require __DIR__ . '/config.local.php';
 if (!defined('AZURE_KEY')) define('AZURE_KEY', '');
 if (!defined('AZURE_REGION')) define('AZURE_REGION', 'eastus');
 
-$db = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+$db = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME, PORT);
 if ($db->connect_error) die('Database connection failed: ' . $db->connect_error);
 $db->set_charset('utf8mb4');
 
