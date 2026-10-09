@@ -2,8 +2,8 @@
 venv/
 __pycache__/
 *.pyc
+web/includes/config.local.php
 *.wav
 *.webm
-uploads/
 .vscode/
 .DS_Store

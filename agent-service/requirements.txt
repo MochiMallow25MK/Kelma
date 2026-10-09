@@ -1,0 +1,7 @@
+crewai
+fastapi
+uvicorn
+pymysql
+python-dotenv
+langfuse
+openinference-instrumentation-crewai
