@@ -5,3 +5,5 @@ pymysql
 python-dotenv
 langfuse
 openinference-instrumentation-crewai
+openinference-instrumentation-litellm
+openinference-instrumentation-google-genai

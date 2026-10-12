@@ -6,7 +6,6 @@
     <p>AI-driven speech therapy for kids, parents, and therapists.</p>
     <div class="buttons">
       <a class="btn btn-coral btn-big" href="/kelma/kelma/web/register.php">Get Started</a>
-      <a class="btn btn-yellow btn-big" href="#about">Watch Demo</a>
     </div>
   </div>
   <div class="mascot">🦊</div>

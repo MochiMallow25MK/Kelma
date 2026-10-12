@@ -16,9 +16,9 @@ require 'includes/header.php';
   <div class="grid-3">
     <div class="card stat t-blue"><div class="num"><?= $s['total'] ?></div>Practice attempts</div>
     <div class="card stat t-mint"><div class="num"><?= $s['mastered'] ?></div>Words said correctly</div>
-    <div class="card stat t-yellow"><div class="num"><?= $s['accuracy'] ?>%</div>Accuracy average (diagnostic)</div>
+    <div class="card stat t-yellow"><div class="num"><?= $s['accuracy'] ?>%</div>Accuracy average</div>
   </div>
-  <p>Motivational score earned: <b><?= $s['stars'] ?> ⭐ stars</b> (kept separate from the accuracy score)</p>
+  <p>Motivational score earned: <b><?= $s['stars'] ?> ⭐ stars</b></p>
 
   <div class="card t-coral">
     <h3>💡 Recommended by the AI Therapy Agent</h3>
