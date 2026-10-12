@@ -28,10 +28,29 @@ def select_words_tool(phoneme: str, difficulty: int) -> str:
     return json.dumps(T.select_words(phoneme, difficulty))
 
 
+def configured_llms():
+    """Main LLM (Gemini) first, then the backup LLM (Groq). Only the ones with a key are used."""
+    llms = []
+    for prefix in ("", "BACKUP_"):
+        model, key = os.getenv(prefix + "LLM_MODEL"), os.getenv(prefix + "LLM_API_KEY")
+        if model and key:
+            llms.append(LLM(model=model, api_key=key, temperature=0, timeout=20))
+    return llms
+
+
 def build_plan_with_agent(child_id):
-    """Ask the LLM agent for a therapy plan. Returns a dict, or None if anything goes wrong."""
+    """Try each configured LLM in order. Returns a plan dict, or None if all of them fail."""
+    for llm in configured_llms():
+        plan = _run_agent(child_id, llm)
+        if plan:
+            plan["llm"] = llm.model.split("/", 1)[-1]   # e.g. gemini-3.5-flash-lite (shown in the game)
+            return plan
+    return None
+
+
+def _run_agent(child_id, llm):
+    """One attempt with one LLM."""
     try:
-        llm = LLM(model=os.getenv("LLM_MODEL"), api_key=os.getenv("LLM_API_KEY"), temperature=0, timeout=30)
         agent = Agent(
             role="Speech therapy session planner for young children",
             goal="Choose the sound, difficulty and game that will help this child most.",
@@ -56,7 +75,7 @@ def build_plan_with_agent(child_id):
         result = Crew(agents=[agent], tasks=[task], verbose=False).kickoff()
         return _validate(str(result.raw))
     except Exception as err:
-        print("Agent failed, using fallback:", err)
+        print(f"Agent failed with {llm.model}: {err}")
         return None
 
 

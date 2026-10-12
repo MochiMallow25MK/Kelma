@@ -5,7 +5,7 @@ require '../includes/config.php'; require '../includes/agent.php';
 if (!isset($_SESSION['child_id'])) json_out(['error' => 'Not logged in'], 401);
 $child_id = (int)$_SESSION['child_id'];
 
-$plan = call_agent('/plan', ['child_id' => $child_id], 40);
+$plan = call_agent('/plan', ['child_id' => $child_id], 45);
 
 if (!$plan || empty($plan['words'])) {
     $plan = ['source' => 'fallback', 'activity' => 'say_it_and_collect_it', 'phoneme' => 'mixed', 'difficulty' => 1,

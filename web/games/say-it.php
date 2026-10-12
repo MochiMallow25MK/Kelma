@@ -21,6 +21,7 @@ require '../includes/header.php';
   <div class="record-zone" id="recordZone" style="display:none">
     <button class="record-btn" id="recordBtn">🎙️<br>Press &amp; Say Word</button>
     <div class="feedback" id="feedback"></div>
+    <div id="heard" style="color:#4a6572"></div>
   </div>
 
   <div class="cue-box" id="cueBox">

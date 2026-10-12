@@ -39,13 +39,13 @@ class FailureRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "llm_configured": bool(os.getenv("LLM_API_KEY"))}
+    return {"status": "ok", "llms": [llm.model for llm in agent.configured_llms()]}
 
 
 @app.post("/plan")
 def plan(req: PlanRequest):
     """Decide what the child practises next and return the words."""
-    result = agent.build_plan_with_agent(req.child_id) if os.getenv("LLM_API_KEY") else None
+    result = agent.build_plan_with_agent(req.child_id)   # Gemini, then Groq; None if neither works
     source = "agent"
     if result is None:                       # no key, LLM error, or rate limit
         result, source = T.rule_based_plan(req.child_id), "fallback"

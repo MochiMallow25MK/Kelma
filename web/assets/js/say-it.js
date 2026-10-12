@@ -15,7 +15,7 @@ function speak(text) {
 fetch(API + 'next_words.php').then(function (r) { return r.json(); }).then(function (data) {
   plan = data;
   words = data.words;
-  var who = data.source === 'agent' ? '🤖 AI agent' : '⚙️ Backup plan';
+  var who = data.source === 'agent' ? '🤖 AI agent' + (data.llm ? ' (' + data.llm + ')' : '') : '⚙️ Backup plan';
   $('mission').textContent = who + ': ' + data.reason;
   $('gameArea').style.display = 'block';
   $('recordZone').style.display = 'block';
@@ -27,6 +27,7 @@ function showWord() {
   $('picture').textContent = w.image;
   $('word').textContent = w.word;
   $('feedback').textContent = '';
+  $('heard').textContent = '';
   $('cueBox').style.display = 'none';
   $('progressText').textContent = 'Word ' + (index + 1) + ' / ' + words.length;
   $('progressFill').style.width = (index / words.length * 100) + '%';
@@ -102,6 +103,8 @@ function sendRecording(wav) {
   form.append('word_id', words[index].id);
   form.append('fails', fails);
   fetch(API + 'assess.php', { method: 'POST', body: form }).then(function (r) { return r.json(); }).then(function (res) {
+    if (res.error) { $('feedback').textContent = res.error; return; }   // checker problem: not counted as a failure
+    $('heard').textContent = res.heard ? 'I heard: "' + res.heard + '"' : '';
     stars += res.stars;
     $('stars').textContent = stars;
     if (res.passed) {

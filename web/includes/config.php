@@ -13,6 +13,10 @@ define('PASS_SCORE', 60);
 if (file_exists(__DIR__ . '/config.local.php')) require __DIR__ . '/config.local.php';
 if (!defined('AZURE_KEY')) define('AZURE_KEY', '');
 if (!defined('AZURE_REGION')) define('AZURE_REGION', 'eastus');
+if (!defined('GROQ_API_KEY')) define('GROQ_API_KEY', '');
+if (!defined('SCORING_MODE')) {   // pick automatically: groq, then azure, then demo
+    define('SCORING_MODE', GROQ_API_KEY !== '' ? 'groq' : (AZURE_KEY !== '' ? 'azure' : 'demo'));
+}
 
 $db = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME, PORT);
 if ($db->connect_error) die('Database connection failed: ' . $db->connect_error);
