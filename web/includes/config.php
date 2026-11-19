@@ -4,9 +4,9 @@ session_start();
 
 define('DB_SERVER', '127.0.0.1');
 define('DB_USERNAME', 'root');
-define('DB_PASSWORD', '');
+define('DB_PASSWORD', 'Mk2005$#');
 define('DB_NAME', 'kelma');
-define('PORT', 3307);
+define('PORT', 3306);
 define('AGENT_URL', 'http://127.0.0.1:8001');
 define('PASS_SCORE', 60);
 
