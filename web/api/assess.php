@@ -32,3 +32,11 @@ $stmt->execute();
 
 json_out(['score' => round($score), 'stars' => $stars, 'passed' => (bool)$passed,
           'method' => $result['method'], 'demo' => $result['method'] === 'demo', 'heard' => $result['heard']]);
+
+function normalize_arabic(string $s): string {
+    // Strip tashkeel (diacritics) per FR-25
+    $s = preg_replace('/[\x{064B}-\x{065F}\x{0670}]/u', '', $s);
+    $s = str_replace(['أ', 'إ', 'آ'], 'ا', $s);
+    $s = str_replace('ى', 'ي', $s);
+    return trim(mb_strtolower($s, 'UTF-8'));
+}          
