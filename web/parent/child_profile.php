@@ -1,26 +1,28 @@
 <?php
 require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/auth_guard.php';
+require_role('parent');
 
-$db = $GLOBALS['db'] ?? null;
-if (!$db instanceof PDO) {
-  throw new RuntimeException('Database connection is unavailable.');
+$parentId = (int)($_SESSION['user_id'] ?? $_SESSION['id'] ?? 0);
+$childId  = (int)($_GET['child_id'] ?? $_SESSION['child_id'] ?? $_SESSION['active_child_id'] ?? 0);
+
+// Fetch parent's children using mysqli ($db)
+$children = [];
+if ($parentId > 0) {
+    $stmt = $db->prepare('SELECT * FROM children WHERE parent_id = ? ORDER BY id ASC');
+    $stmt->bind_param('i', $parentId);
+    $stmt->execute();
+    $children = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
-
-$user = require_login('parent');
-$childId = (int)($_GET['child_id'] ?? $_SESSION['active_child_id'] ?? 0);
-
-// Fetch parent's children
-$stmt = $db->prepare('SELECT * FROM children WHERE parent_id = ? ORDER BY id ASC');
-$stmt->execute([$user['user_id']]);
-$children = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $child = null;
 foreach ($children as $c) {
-    if ((int)$c['id'] === $childId) { $child = $c; break; }
+    if ((int)$c['id'] === $childId) {
+        $child = $c;
+        break;
+    }
 }
 if (!$child && !empty($children)) {
-    $child = $children[0];
+    $child   = $children[0];
     $childId = (int)$child['id'];
 }
 
@@ -30,13 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_profile') {
         $fullName = trim($_POST['full_name'] ?? '');
-        $dob      = $_POST['dob'] ?: null;
+        $dob      = !empty($_POST['dob']) ? $_POST['dob'] : null;
         $gender   = $_POST['gender'] ?? 'Prefer not to say';
         $favColor = $_POST['favourite_color'] ?? '#118AB2';
         $hobby    = trim($_POST['hobby'] ?? '');
         $pfp      = $_POST['pfp'] ?? '🦁';
 
-        // Compute age_band automatically from DOB if provided
         $ageBand = '4-6';
         if ($dob) {
             $age = (new DateTime($dob))->diff(new DateTime())->y;
@@ -49,32 +50,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 SET name = ?, full_name = ?, dob = ?, age_band = ?, gender = ?, favourite_color = ?, hobby = ?, pfp = ?, language = 'Egyptian Arabic'
                 WHERE id = ? AND parent_id = ?
             ");
-            $upd->execute([$fullName, $fullName, $dob, $ageBand, $gender, $favColor, $hobby, $pfp, $childId, $user['user_id']]);
+            $upd->bind_param('ssssssssii', $fullName, $fullName, $dob, $ageBand, $gender, $favColor, $hobby, $pfp, $childId, $parentId);
+            $upd->execute();
         } else {
             $ins = $db->prepare("
                 INSERT INTO children (parent_id, name, full_name, dob, age_band, gender, favourite_color, hobby, pfp, language)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Egyptian Arabic')
             ");
-            $ins->execute([$user['user_id'], $fullName, $fullName, $dob, $ageBand, $gender, $favColor, $hobby, $pfp]);
-            $childId = (int)$db->lastInsertId();
+            $ins->bind_param('issssssss', $parentId, $fullName, $fullName, $dob, $ageBand, $gender, $favColor, $hobby, $pfp);
+            $ins->execute();
+            $childId = (int)$db->insert_id;
         }
+
+        $_SESSION['child_id'] = $childId;
         $_SESSION['active_child_id'] = $childId;
-        header("Location: child_profile.php?child_id={$childId}&saved=1");
+        $_SESSION['child_name'] = $fullName;
+        header("Location: /kelma/kelma/web/parent/child_profile.php?child_id={$childId}&saved=1");
         exit;
     }
 
     if ($action === 'link_therapist' && $child) {
         $therapistEmail = trim($_POST['therapist_email'] ?? '');
-        $tStmt = $db->prepare("SELECT id FROM users WHERE email = ? AND role = 'therapist'");
-        $tStmt->execute([$therapistEmail]);
-        $therapist = $tStmt->fetch(PDO::FETCH_ASSOC);
+        $tStmt = $db->prepare("SELECT id FROM users WHERE email = ? AND role = 'therapist' LIMIT 1");
+        $tStmt->bind_param('s', $therapistEmail);
+        $tStmt->execute();
+        $therapist = $tStmt->get_result()->fetch_assoc();
 
         if ($therapist && !empty($_POST['guardian_consent'])) {
+            $tId = (int)$therapist['id'];
             $cIns = $db->prepare("INSERT INTO consents (parent_id, child_id, scope) VALUES (?, ?, 'therapy_oversight_and_speech_scoring')");
-            $cIns->execute([$user['user_id'], $childId]);
+            $cIns->bind_param('ii', $parentId, $childId);
+            $cIns->execute();
 
             $lIns = $db->prepare("INSERT INTO therapist_links (therapist_id, child_id, status) VALUES (?, ?, 'approved') ON DUPLICATE KEY UPDATE status = 'approved'");
-            $lIns->execute([$therapist['id'], $childId]);
+            $lIns->bind_param('ii', $tId, $childId);
+            $lIns->execute();
             $msg = 'Guardian consent saved and therapist linked successfully!';
         } else {
             $msg = 'Please check the consent box and enter a valid registered therapist email.';
@@ -96,8 +106,8 @@ $avatars = ['🦁','🐱','🐶','🐰','🦊','🐼','🦄','🐸','🐧','🚀
 </head>
 <body class="kelma-kids">
   <div class="topbar-kids">
-    <a href="/kelma/kelma/web/parent/dashboard.php" class="btn-pill btn-blue">← Back to Parent Dashboard</a>
-    <strong>👶 Child Profile & Guardian Settings</strong>
+    <a href="/kelma/kelma/web/parent_dashboard.php" class="btn-pill btn-blue">← Back to Parent Dashboard</a>
+    <strong>👶 Child Profile &amp; Guardian Settings</strong>
     <a href="/kelma/kelma/web/games/hub.php?child_id=<?= $childId ?>" class="btn-pill btn-mint">🎮 Open Child Hub</a>
   </div>
 
@@ -173,7 +183,7 @@ $avatars = ['🦁','🐱','🐶','🐰','🦊','🐼','🦄','🐸','🐧','🚀
             I consent (Egypt PDPL Law No. 151/2020) to share <?= htmlspecialchars($child['full_name'] ?? $child['name']) ?>'s diagnostic scores and session plans with this licensed therapist. No voice recordings are stored.
           </label>
         </div>
-        <button type="submit" class="btn-pill btn-mint">✅ Grant Consent & Link Therapist</button>
+        <button type="submit" class="btn-pill btn-mint">✅ Grant Consent &amp; Link Therapist</button>
       </form>
     </div>
     <?php endif; ?>

@@ -14,8 +14,6 @@
   <div class="nav-links">
     <a href="/kelma/kelma/web/AboutUs.php">About Us</a>
     <a href="/kelma/kelma/web/ContactUs.php">Contact Us</a>
-    <a href="/kelma/kelma/web/games/hub.php">Fun Hub</a>
-    <a href="/kelma/kelma/web/parent/child_profile.php">My Profile</a>
     <?php if (isset($_SESSION['user_id'])): ?>
       <a class="btn btn-yellow" href="/kelma/kelma/web/<?= $_SESSION['role'] ?>_dashboard.php">Dashboard</a>
       <a class="btn btn-coral" href="/kelma/kelma/web/logout.php">Logout</a>

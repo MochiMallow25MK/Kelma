@@ -1,15 +1,37 @@
 <?php
 require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/auth_guard.php';
+require_role('parent');
 
-$db = $GLOBALS['db'];
-$user = require_login('parent');
-$childId = (int)($_GET['child_id'] ?? $_SESSION['active_child_id'] ?? 0);
-$child = assert_child_access($db, $childId);
+$parentId = (int)($_SESSION['user_id'] ?? $_SESSION['id'] ?? 0);
+$childId  = (int)($_GET['child_id'] ?? $_SESSION['child_id'] ?? $_SESSION['active_child_id'] ?? 0);
 
-$starStmt = $db->prepare('SELECT COALESCE(SUM(stars), 0) FROM attempts WHERE child_id = ?');
-$starStmt->execute([$childId]);
-$totalStars = (int)$starStmt->fetchColumn();
+// Resolve child via mysqli ($db)
+$child = null;
+if ($childId > 0) {
+    $stmt = $db->prepare('SELECT * FROM children WHERE id = ? AND parent_id = ? LIMIT 1');
+    $stmt->bind_param('ii', $childId, $parentId);
+    $stmt->execute();
+    $child = $stmt->get_result()->fetch_assoc();
+}
+if (!$child && $parentId > 0) {
+    $stmt = $db->prepare('SELECT * FROM children WHERE parent_id = ? ORDER BY id ASC LIMIT 1');
+    $stmt->bind_param('i', $parentId);
+    $stmt->execute();
+    $child = $stmt->get_result()->fetch_assoc();
+}
+if (!$child) {
+    header('Location: /kelma/kelma/web/parent/child_profile.php');
+    exit;
+}
+
+$childId = (int)$child['id'];
+$_SESSION['child_id'] = $childId;
+$_SESSION['active_child_id'] = $childId;
+
+$starStmt = $db->prepare('SELECT COALESCE(SUM(motivational_stars), 0) AS total_stars FROM attempts WHERE child_id = ?');
+$starStmt->bind_param('i', $childId);
+$starStmt->execute();
+$totalStars = (int)($starStmt->get_result()->fetch_assoc()['total_stars'] ?? 0);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -70,23 +92,49 @@ $totalStars = (int)$starStmt->fetchColumn();
   <script src="/kelma/kelma/web/assets/js/stimulus-engine.js"></script>
   <script>
     const childId = <?= $childId ?>;
-    const engine = new KelmaStimulusEngine({
-      childId,
-      activity: 'word_hunt',
-      onStarsUpdated: (total) => { document.getElementById('starCount').textContent = total; }
-    });
+    const engine = (typeof KelmaStimulusEngine !== 'undefined')
+      ? new KelmaStimulusEngine({
+          childId,
+          activity: 'word_hunt',
+          onStarsUpdated: (total) => { document.getElementById('starCount').textContent = total; }
+        })
+      : null;
 
     let questions = [];
     let qIndex = 0;
     let currentQ = null;
     let solvedCurrent = false;
 
+    function fallbackSpeak(text, audioPath) {
+      if (audioPath) {
+        const a = new Audio(audioPath);
+        a.play().catch(() => {});
+        return;
+      }
+      if (!window.speechSynthesis || !text) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ar-EG';
+      u.rate = 0.85;
+      const arVoice = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ar'));
+      if (arVoice) u.voice = arVoice;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    }
+
     async function loadLevel(level) {
-      const res = await fetch(`/kelma/kelma/web/api/word_hunt_questions.php?child_id=${childId}&level=${level}`);
-      const data = await res.json();
-      questions = data.questions || [];
-      qIndex = 0;
-      renderQuestion();
+      try {
+        const res = await fetch(`/kelma/kelma/web/api/word_hunt_questions.php?child_id=${childId}&level=${level}`);
+        const data = await res.json();
+        questions = data.questions || [];
+        qIndex = 0;
+        if (!questions.length) {
+          document.getElementById('promptEn').textContent = 'No questions returned for this level yet.';
+          return;
+        }
+        renderQuestion();
+      } catch (e) {
+        document.getElementById('promptEn').textContent = 'Could not load Word Hunt questions.';
+      }
     }
 
     function renderQuestion() {
@@ -96,7 +144,7 @@ $totalStars = (int)$starStmt->fetchColumn();
 
       if (qIndex >= questions.length) {
         const nextLvl = Math.min(3, parseInt(document.getElementById('levelSelect').value, 10) + 1);
-        engine.showStarReward(3, 'ممتاز! خلصت الجولة كلها! 🎉');
+        if (engine) engine.showStarReward(3, 'ممتاز! خلصت الجولة كلها! 🎉');
         document.getElementById('levelSelect').value = String(nextLvl);
         loadLevel(nextLvl);
         return;
@@ -114,21 +162,22 @@ $totalStars = (int)$starStmt->fetchColumn();
         const tile = document.createElement('div');
         tile.className = 'hunt-tile';
         tile.innerHTML = `
-          <span class="tile-emoji">${opt.emoji || '🌟'}</span>
+          <span class="tile-emoji">${opt.emoji || opt.image || '🌟'}</span>
           <div class="tile-arabic">${opt.word}</div>
         `;
         tile.onclick = async () => {
           if (solvedCurrent) return;
           const isCorrect = parseInt(opt.id, 10) === parseInt(currentQ.target_id, 10);
           tile.classList.add(isCorrect ? 'correct' : 'wrong');
-          await engine.submitTapAttempt(currentQ.target_id, isCorrect);
+          if (engine) {
+            await engine.submitTapAttempt(currentQ.target_id, isCorrect);
+          }
 
           if (isCorrect) {
             solvedCurrent = true;
             document.getElementById('bonusWordLabel').textContent = `${currentQ.target_word} (${currentQ.target_en})`;
             document.getElementById('sayAloudBox').style.display = 'flex';
             setTimeout(() => {
-              // Auto-advance after 4.5s unless child clicks the mic button
               if (solvedCurrent && !document.getElementById('bonusMicBtn').disabled) {
                 qIndex++;
                 renderQuestion();
@@ -139,11 +188,20 @@ $totalStars = (int)$starStmt->fetchColumn();
         grid.appendChild(tile);
       });
 
-      engine.speakArabic(currentQ.speak_text, currentQ.audio_path);
+      if (engine && engine.speakArabic) {
+        engine.speakArabic(currentQ.speak_text, currentQ.audio_path);
+      } else {
+        fallbackSpeak(currentQ.speak_text, currentQ.audio_path);
+      }
     }
 
     document.getElementById('replayBtn').onclick = () => {
-      if (currentQ) engine.speakArabic(currentQ.speak_text, currentQ.audio_path);
+      if (!currentQ) return;
+      if (engine && engine.speakArabic) {
+        engine.speakArabic(currentQ.speak_text, currentQ.audio_path);
+      } else {
+        fallbackSpeak(currentQ.speak_text, currentQ.audio_path);
+      }
     };
 
     document.getElementById('levelSelect').onchange = (e) => loadLevel(e.target.value);
