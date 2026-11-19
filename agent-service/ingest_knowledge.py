@@ -3,8 +3,8 @@ import json
 import math
 import os
 import requests
-import pymysql
 from dotenv import load_dotenv
+from db import _connect
 
 load_dotenv()
 
@@ -59,6 +59,7 @@ SEED_CARDS = [
     },
 ]
 
+
 def local_hash_embedding(text: str, dim: int = 64) -> list[float]:
     vec = [0.0] * dim
     tokens = text.split()
@@ -69,6 +70,7 @@ def local_hash_embedding(text: str, dim: int = 64) -> list[float]:
             vec[i] += 1.0 if bit else -1.0
     norm = math.sqrt(sum(v * v for v in vec)) or 1.0
     return [round(v / norm, 6) for v in vec]
+
 
 def get_embedding(text: str) -> tuple[list[float], str]:
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
@@ -87,15 +89,9 @@ def get_embedding(text: str) -> tuple[list[float], str]:
             pass
     return local_hash_embedding(text), "local-hash-64d"
 
+
 def ingest():
-    conn = pymysql.connect(
-        host=os.getenv("DB_HOST", "127.0.0.1"),
-        user=os.getenv("DB_USER", "root"),
-        password=os.getenv("DB_PASS", "Mk2005$#"),
-        database=os.getenv("DB_NAME", "kelma"),
-        charset="utf8mb4",
-        cursorclass=pymysql.cursors.DictCursor,
-    )
+    conn = _connect()
     try:
         with conn.cursor() as cur:
             for c in SEED_CARDS:
@@ -104,18 +100,45 @@ def ingest():
                 existing = cur.fetchone()
                 if existing:
                     cur.execute(
-                        "UPDATE knowledge_cards SET topic=%s, sound=%s, age_range=%s, text=%s, source_ref=%s, embedding=%s, embedding_model=%s WHERE id=%s",
-                        (c["topic"], c["sound"], c["age_range"], c["text"], c["source_ref"], json.dumps(emb), model_name, existing["id"]),
+                        """
+                        UPDATE knowledge_cards
+                        SET topic=%s, sound=%s, age_range=%s, text=%s, source_ref=%s, embedding=%s, embedding_model=%s
+                        WHERE id=%s
+                        """,
+                        (
+                            c["topic"],
+                            c["sound"],
+                            c["age_range"],
+                            c["text"],
+                            c["source_ref"],
+                            json.dumps(emb),
+                            model_name,
+                            existing["id"],
+                        ),
                     )
                 else:
                     cur.execute(
-                        "INSERT INTO knowledge_cards (title, topic, sound, age_range, text, source_ref, embedding, embedding_model) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-                        (c["title"], c["topic"], c["sound"], c["age_range"], c["text"], c["source_ref"], json.dumps(emb), model_name),
+                        """
+                        INSERT INTO knowledge_cards
+                        (title, topic, sound, age_range, text, source_ref, embedding, embedding_model)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            c["title"],
+                            c["topic"],
+                            c["sound"],
+                            c["age_range"],
+                            c["text"],
+                            c["source_ref"],
+                            json.dumps(emb),
+                            model_name,
+                        ),
                     )
         conn.commit()
         print(f"Ingested {len(SEED_CARDS)} knowledge cards successfully.")
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     ingest()

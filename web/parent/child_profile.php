@@ -2,8 +2,8 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth_guard.php';
 
-$pdo = $GLOBALS['pdo'] ?? null;
-if (!$pdo instanceof PDO) {
+$db = $GLOBALS['db'] ?? null;
+if (!$db instanceof PDO) {
   throw new RuntimeException('Database connection is unavailable.');
 }
 
@@ -11,7 +11,7 @@ $user = require_login('parent');
 $childId = (int)($_GET['child_id'] ?? $_SESSION['active_child_id'] ?? 0);
 
 // Fetch parent's children
-$stmt = $pdo->prepare('SELECT * FROM children WHERE parent_id = ? ORDER BY id ASC');
+$stmt = $db->prepare('SELECT * FROM children WHERE parent_id = ? ORDER BY id ASC');
 $stmt->execute([$user['user_id']]);
 $children = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -44,19 +44,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($child) {
-            $upd = $pdo->prepare("
+            $upd = $db->prepare("
                 UPDATE children
                 SET name = ?, full_name = ?, dob = ?, age_band = ?, gender = ?, favourite_color = ?, hobby = ?, pfp = ?, language = 'Egyptian Arabic'
                 WHERE id = ? AND parent_id = ?
             ");
             $upd->execute([$fullName, $fullName, $dob, $ageBand, $gender, $favColor, $hobby, $pfp, $childId, $user['user_id']]);
         } else {
-            $ins = $pdo->prepare("
+            $ins = $db->prepare("
                 INSERT INTO children (parent_id, name, full_name, dob, age_band, gender, favourite_color, hobby, pfp, language)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Egyptian Arabic')
             ");
             $ins->execute([$user['user_id'], $fullName, $fullName, $dob, $ageBand, $gender, $favColor, $hobby, $pfp]);
-            $childId = (int)$pdo->lastInsertId();
+            $childId = (int)$db->lastInsertId();
         }
         $_SESSION['active_child_id'] = $childId;
         header("Location: child_profile.php?child_id={$childId}&saved=1");
@@ -65,15 +65,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'link_therapist' && $child) {
         $therapistEmail = trim($_POST['therapist_email'] ?? '');
-        $tStmt = $pdo->prepare("SELECT id FROM users WHERE email = ? AND role = 'therapist'");
+        $tStmt = $db->prepare("SELECT id FROM users WHERE email = ? AND role = 'therapist'");
         $tStmt->execute([$therapistEmail]);
         $therapist = $tStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($therapist && !empty($_POST['guardian_consent'])) {
-            $cIns = $pdo->prepare("INSERT INTO consents (parent_id, child_id, scope) VALUES (?, ?, 'therapy_oversight_and_speech_scoring')");
+            $cIns = $db->prepare("INSERT INTO consents (parent_id, child_id, scope) VALUES (?, ?, 'therapy_oversight_and_speech_scoring')");
             $cIns->execute([$user['user_id'], $childId]);
 
-            $lIns = $pdo->prepare("INSERT INTO therapist_links (therapist_id, child_id, status) VALUES (?, ?, 'approved') ON DUPLICATE KEY UPDATE status = 'approved'");
+            $lIns = $db->prepare("INSERT INTO therapist_links (therapist_id, child_id, status) VALUES (?, ?, 'approved') ON DUPLICATE KEY UPDATE status = 'approved'");
             $lIns->execute([$therapist['id'], $childId]);
             $msg = 'Guardian consent saved and therapist linked successfully!';
         } else {

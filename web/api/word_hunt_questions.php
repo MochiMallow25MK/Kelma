@@ -4,23 +4,22 @@ require_once __DIR__ . '/../includes/auth_guard.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-// db.php may expose the shared PDO instance under a different legacy name.
-if (!isset($pdo)) {
+if (!isset($db)) {
     if (isset($conn) && $conn instanceof PDO) {
-        $pdo = $conn;
+        $db = $conn;
     } elseif (isset($db) && $db instanceof PDO) {
-        $pdo = $db;
+        $db = $db;
     }
 }
 
-if (!isset($pdo) || !$pdo instanceof PDO) {
+if (!isset($db) || !$db instanceof PDO) {
     http_response_code(500);
     echo json_encode(['error' => 'Database connection unavailable'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 $childId = (int)($_GET['child_id'] ?? $_SESSION['active_child_id'] ?? 0);
-assert_child_access($pdo, $childId);
+assert_child_access($db, $childId);
 
 $level = max(1, min(3, (int)($_GET['level'] ?? 1)));
 $questions = [];
@@ -30,7 +29,7 @@ for ($q = 0; $q < 5; $q++) {
         // Level 1: Objects (same-category distractors)
         $cats = ['Animals', 'Fruits', 'Vegetables', 'Everyday Objects'];
         $cat = $cats[array_rand($cats)];
-        $stmt = $pdo->prepare("SELECT id, word, emoji, english_meaning, phoneme, category, audio_path FROM words WHERE category = ? ORDER BY RAND() LIMIT 4");
+        $stmt = $db->prepare("SELECT id, word, emoji, english_meaning, phoneme, category, audio_path FROM words WHERE category = ? ORDER BY RAND() LIMIT 4");
         $stmt->execute([$cat]);
         $options = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $target = $options[0];
@@ -48,7 +47,7 @@ for ($q = 0; $q < 5; $q++) {
         ];
     } elseif ($level === 2) {
         // Level 2: Actions (Verbs)
-        $stmt = $pdo->query("SELECT id, word, emoji, english_meaning, phoneme, category, audio_path FROM words WHERE category = 'Verbs' ORDER BY RAND() LIMIT 4");
+        $stmt = $db->query("SELECT id, word, emoji, english_meaning, phoneme, category, audio_path FROM words WHERE category = 'Verbs' ORDER BY RAND() LIMIT 4");
         $options = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $target = $options[0];
         shuffle($options);
@@ -72,14 +71,14 @@ for ($q = 0; $q < 5; $q++) {
             'Colours'    => ['ar' => 'ألوان', 'en' => 'a Colour'],
         ];
         $targetCat = array_rand($catLabels);
-        $tStmt = $pdo->prepare("SELECT id, word, emoji, english_meaning, phoneme, category, audio_path FROM words WHERE category = ? ORDER BY RAND() LIMIT 1");
+        $tStmt = $db->prepare("SELECT id, word, emoji, english_meaning, phoneme, category, audio_path FROM words WHERE category = ? ORDER BY RAND() LIMIT 1");
         $tStmt->execute([$targetCat]);
         $target = $tStmt->fetch(PDO::FETCH_ASSOC);
         if (!is_array($target)) {
             continue;
         }
 
-        $dStmt = $pdo->prepare("SELECT id, word, emoji, english_meaning, phoneme, category, audio_path FROM words WHERE category != ? AND category IN ('Fruits','Vegetables','Animals','Colours') ORDER BY RAND() LIMIT 3");
+        $dStmt = $db->prepare("SELECT id, word, emoji, english_meaning, phoneme, category, audio_path FROM words WHERE category != ? AND category IN ('Fruits','Vegetables','Animals','Colours') ORDER BY RAND() LIMIT 3");
         $dStmt->execute([$targetCat]);
         $options = array_merge([$target], $dStmt->fetchAll(PDO::FETCH_ASSOC));
         shuffle($options);

@@ -1,21 +1,14 @@
 import json
 import math
-import os
-import pymysql
 from dotenv import load_dotenv
+from db import _connect
 from ingest_knowledge import get_embedding, local_hash_embedding
 
 load_dotenv()
 
 def get_db():
-    return pymysql.connect(
-        host=os.getenv("DB_HOST", "127.0.0.1"),
-        user=os.getenv("DB_USER", "root"),
-        password=os.getenv("DB_PASS", "Mk2005$#"),
-        database=os.getenv("DB_NAME", "kelma"),
-        charset="utf8mb4",
-        cursorclass=pymysql.cursors.DictCursor,
-    )
+    return _connect()
+
 
 def cosine_sim(a: list[float], b: list[float]) -> float:
     if not a or not b or len(a) != len(b):
@@ -24,6 +17,7 @@ def cosine_sim(a: list[float], b: list[float]) -> float:
     na = math.sqrt(sum(x * x for x in a)) or 1.0
     nb = math.sqrt(sum(y * y for y in b)) or 1.0
     return dot / (na * nb)
+
 
 def get_child_history(child_id: int) -> dict:
     conn = get_db()
@@ -63,12 +57,15 @@ def get_child_history(child_id: int) -> dict:
     finally:
         conn.close()
 
+
 def retrieve_guidance(sound: str, age_band: str = "4-8", query_text: str = "", k: int = 3) -> list[dict]:
-    """FR-12: Retrieve top-k vetted knowledge cards without exposing any child PII."""
+    """Retrieve top-k vetted knowledge cards without exposing any child PII."""
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, title, topic, sound, age_range, text, source_ref, embedding, embedding_model FROM knowledge_cards")
+            cur.execute(
+                "SELECT id, title, topic, sound, age_range, text, source_ref, embedding, embedding_model FROM knowledge_cards"
+            )
             cards = cur.fetchall()
 
         if not cards:
@@ -80,13 +77,11 @@ def retrieve_guidance(sound: str, age_band: str = "4-8", query_text: str = "", k
 
         scored = []
         for c in cards:
-            # Metadata filter: match target sound or universal 'ALL'
             if c["sound"] not in (sound, "ALL"):
                 continue
             card_emb = json.loads(c["embedding"]) if c["embedding"] else []
             q_vec = q_emb_api if len(card_emb) == len(q_emb_api) else q_emb_local
             sim = cosine_sim(q_vec, card_emb)
-            # Boost exact phoneme match
             if c["sound"] == sound:
                 sim += 0.25
             scored.append({
@@ -104,8 +99,9 @@ def retrieve_guidance(sound: str, age_band: str = "4-8", query_text: str = "", k
     finally:
         conn.close()
 
+
 def select_words(sound: str, difficulty: int = 1, count: int = 5, category: str | None = None) -> list[dict]:
-    """FR-09: Query Egyptian Arabic Word Bank with emoji, category, cue, and audio."""
+    """Query Egyptian Arabic Word Bank with emoji, category, cue, and audio."""
     conn = get_db()
     try:
         with conn.cursor() as cur:
@@ -128,7 +124,6 @@ def select_words(sound: str, difficulty: int = 1, count: int = 5, category: str 
             )
             rows = cur.fetchall()
 
-            # Fallback: relax difficulty or phoneme if fewer than requested
             if len(rows) < count:
                 needed = count - len(rows)
                 existing_ids = [r["id"] for r in rows] or [0]
@@ -148,8 +143,9 @@ def select_words(sound: str, difficulty: int = 1, count: int = 5, category: str 
     finally:
         conn.close()
 
+
 def handle_failure(word_id: int, fails: int) -> dict:
-    """FR-28: Three-tier failure handling (1: retry, 2: cue from bank/RAG, 3+: easier word same sound)."""
+    """Three-tier failure handling (1: retry, 2: cue, 3+: easier word same sound)."""
     conn = get_db()
     try:
         with conn.cursor() as cur:
@@ -171,7 +167,6 @@ def handle_failure(word_id: int, fails: int) -> dict:
                     "message": f"تلميح: {cue} 💡",
                 }
 
-            # Tier 3: easier word with the same sound
             cur.execute(
                 """
                 SELECT id, word, emoji, english_meaning, phoneme, position, difficulty, category, cue, audio_path

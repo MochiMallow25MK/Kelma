@@ -2,18 +2,18 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth_guard.php';
 
-$pdo = $GLOBALS['pdo'] ?? null;
+$db = $GLOBALS['db'] ?? null;
 $user = require_login('parent');
 $childId = (int)($_GET['child_id'] ?? $_SESSION['active_child_id'] ?? 0);
-$child = assert_child_access($pdo, $childId);
+$child = assert_child_access($db, $childId);
 
 // Total stars earned across all games (FR-27: stars only, no coins)
-$starStmt = $pdo->prepare('SELECT COALESCE(SUM(stars), 0) AS total_stars FROM attempts WHERE child_id = ?');
+$starStmt = $db->prepare('SELECT COALESCE(SUM(stars), 0) AS total_stars FROM attempts WHERE child_id = ?');
 $starStmt->execute([$childId]);
-$totalStars = (int)$starStmt->fetchColumn();
+$totalStars = (int)$starStmt->fetch(PDO::FETCH_COLUMN);
 
 // Latest Agentic RAG recommendation
-$planStmt = $pdo->prepare('SELECT * FROM agent_logs WHERE child_id = ? ORDER BY created_at DESC LIMIT 1');
+$planStmt = $db->prepare('SELECT * FROM agent_logs WHERE child_id = ? ORDER BY created_at DESC LIMIT 1');
 $planStmt->execute([$childId]);
 $latestPlan = $planStmt->fetch(PDO::FETCH_ASSOC);
 

@@ -3,8 +3,8 @@ import os
 import re
 import sys
 import pandas as pd
-import pymysql
 from dotenv import load_dotenv
+from db import _connect
 
 load_dotenv()
 
@@ -83,8 +83,10 @@ EMOJI_MAP = {
 
 TASHKEEL_RE = re.compile(r"[\u064B-\u065F\u0670]")
 
+
 def strip_tashkeel(text: str) -> str:
     return TASHKEEL_RE.sub("", text).strip()
+
 
 def detect_position(word: str, phoneme: str) -> str:
     bare_word = strip_tashkeel(word)
@@ -97,6 +99,7 @@ def detect_position(word: str, phoneme: str) -> str:
         return "final"
     return "medial"
 
+
 def detect_difficulty(word: str, category: str) -> int:
     bare_len = len(strip_tashkeel(word))
     if category in ("Animals", "Fruits", "Vegetables", "Colours") and bare_len <= 4:
@@ -105,15 +108,6 @@ def detect_difficulty(word: str, category: str) -> int:
         return 2
     return 3
 
-def get_conn():
-    return pymysql.connect(
-        host=os.getenv("DB_HOST", "127.0.0.1"),
-        user=os.getenv("DB_USER", "root"),
-        password=os.getenv("DB_PASS", ""),
-        database=os.getenv("DB_NAME", "kelma"),
-        charset="utf8mb4",
-        cursorclass=pymysql.cursors.DictCursor,
-    )
 
 def import_folder(folder_path: str):
     files = sorted(glob.glob(os.path.join(folder_path, "*.xlsx")))
@@ -122,7 +116,7 @@ def import_folder(folder_path: str):
         sys.exit(1)
 
     loaded = skipped = rejected = 0
-    conn = get_conn()
+    conn = _connect()
     try:
         with conn.cursor() as cur:
             for fp in files:
@@ -150,7 +144,11 @@ def import_folder(folder_path: str):
                     pos = detect_position(ar_word, phoneme)
                     diff = detect_difficulty(ar_word, category)
                     cue = f"انطق صوت ({phoneme}) بوضوح في كلمة {ar_word}"
-                    audio_path = "/kelma/web/assets/audio/batteekh.wav" if strip_tashkeel(ar_word) == "بطيخ" else None
+                    audio_path = (
+                        "/kelma/web/assets/audio/batteekh.wav"
+                        if strip_tashkeel(ar_word) == "بطيخ"
+                        else None
+                    )
 
                     cur.execute(
                         """
@@ -162,7 +160,7 @@ def import_folder(folder_path: str):
                     )
                     loaded += 1
 
-            # Also add sample training word مهلبية (from sample audio) if not present
+            # Sample training word مهلبية from sample audio
             cur.execute("SELECT id FROM words WHERE word = %s", ("مَهَلَّبِيَّة",))
             if not cur.fetchone():
                 cur.execute(
@@ -171,7 +169,11 @@ def import_folder(folder_path: str):
                     (word, emoji, english_meaning, phoneme, position, difficulty, category, cue, audio_path, language, source_file)
                     VALUES (%s, '🍮', 'mahalabeya', 'هـ', 'medial', 2, 'Everyday Objects', %s, %s, 'Egyptian Arabic', 'Sample Audio')
                     """,
-                    ("مَهَلَّبِيَّة", "انطق صوت (هـ) في وسط كلمة مَهَلَّبِيَّة", "/kelma/web/assets/audio/mahalabeya.wav"),
+                    (
+                        "مَهَلَّبِيَّة",
+                        "انطق صوت (هـ) في وسط كلمة مَهَلَّبِيَّة",
+                        "/kelma/web/assets/audio/mahalabeya.wav",
+                    ),
                 )
                 loaded += 1
 
@@ -180,6 +182,7 @@ def import_folder(folder_path: str):
         conn.close()
 
     print(f"Import Complete -> Loaded: {loaded} | Skipped (duplicates): {skipped} | Rejected: {rejected}")
+
 
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else "../datasets"

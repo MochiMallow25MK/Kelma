@@ -1,13 +1,13 @@
 <?php
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth_guard.php';
 
-$pdo = $GLOBALS['pdo'];
+$db = $GLOBALS['db'];
 $user = require_login('parent');
 $childId = (int)($_GET['child_id'] ?? $_SESSION['active_child_id'] ?? 0);
-$child = assert_child_access($pdo, $childId);
+$child = assert_child_access($db, $childId);
 
-$starStmt = $pdo->prepare('SELECT COALESCE(SUM(stars), 0) FROM attempts WHERE child_id = ?');
+$starStmt = $db->prepare('SELECT COALESCE(SUM(stars), 0) FROM attempts WHERE child_id = ?');
 $starStmt->execute([$childId]);
 $totalStars = (int)$starStmt->fetchColumn();
 ?>
