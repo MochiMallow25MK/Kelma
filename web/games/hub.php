@@ -60,7 +60,7 @@ $childDisplayName = $child['full_name'] ?? $child['name'] ?? 'Hero';
 </head>
 <body class="kelma-kids">
   <div class="topbar-kids" style="border-bottom-color: <?= $favColor ?>;">
-    <a href="/kelma/kelma/web/parent_dashboard.php" class="btn-pill btn-coral">🏠 Exit to Parent Hub</a>
+    <a href="/kelma/kelma/web/parent_dashboard.php" class="btn-pill btn-coral">← Back to Parent Dashboard</a>
     <div class="star-badge">⭐ Stars: <?= $totalStars ?></div>
   </div>
 
@@ -68,9 +68,9 @@ $childDisplayName = $child['full_name'] ?? $child['name'] ?? 'Hero';
     <div style="text-align:center;">
       <div style="font-size:4.2rem;"><?= htmlspecialchars($child['pfp'] ?? '🦁') ?></div>
       <h1 style="font-size:2.3rem;margin:6px 0;color:<?= $favColor ?>;">
-        WELCOME BACK, <?= strtoupper(htmlspecialchars($childDisplayName)) ?>! 👋
+        WELCOME BACK, <?= strtoupper(htmlspecialchars($childDisplayName)) ?> ! 👋
       </h1>
-      <p style="font-size:1.25rem;font-weight:700;">Which game do you want to play today? / تحب تلعب إيه النهاردة؟</p>
+      <p style="font-size:1.25rem;font-weight:700;">Which game do you want to play today ? </p>
     </div>
 
     <div class="game-grid-3">

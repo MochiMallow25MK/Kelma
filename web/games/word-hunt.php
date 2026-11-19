@@ -82,148 +82,19 @@ $totalStars = (int)($starStmt->get_result()->fetch_assoc()['total_stars'] ?? 0);
   </div>
 
   <!-- FR-27: Star-Only Reward Animation Overlay -->
-  <div class="star-overlay" id="starOverlay">
+  <div class="star-overlay" id="starOverlay" style="display:none;">
     <div class="star-popup">
       <div class="star-burst" id="starBurst">⭐⭐</div>
       <h2 id="starMessage" style="margin:12px 0 0;">أحسنت!</h2>
     </div>
   </div>
 
-  <script src="/kelma/kelma/web/assets/js/stimulus-engine.js"></script>
   <script>
-    const childId = <?= $childId ?>;
-    const engine = (typeof KelmaStimulusEngine !== 'undefined')
-      ? new KelmaStimulusEngine({
-          childId,
-          activity: 'word_hunt',
-          onStarsUpdated: (total) => { document.getElementById('starCount').textContent = total; }
-        })
-      : null;
-
-    let questions = [];
-    let qIndex = 0;
-    let currentQ = null;
-    let solvedCurrent = false;
-
-    function fallbackSpeak(text, audioPath) {
-      if (audioPath) {
-        const a = new Audio(audioPath);
-        a.play().catch(() => {});
-        return;
-      }
-      if (!window.speechSynthesis || !text) return;
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ar-EG';
-      u.rate = 0.85;
-      const arVoice = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('ar'));
-      if (arVoice) u.voice = arVoice;
-      speechSynthesis.cancel();
-      speechSynthesis.speak(u);
-    }
-
-    async function loadLevel(level) {
-      try {
-        const res = await fetch(`/kelma/kelma/web/api/word_hunt_questions.php?child_id=${childId}&level=${level}`);
-        const data = await res.json();
-        questions = data.questions || [];
-        qIndex = 0;
-        if (!questions.length) {
-          document.getElementById('promptEn').textContent = 'No questions returned for this level yet.';
-          return;
-        }
-        renderQuestion();
-      } catch (e) {
-        document.getElementById('promptEn').textContent = 'Could not load Word Hunt questions.';
-      }
-    }
-
-    function renderQuestion() {
-      solvedCurrent = false;
-      document.getElementById('sayAloudBox').style.display = 'none';
-      document.getElementById('speechFeedback').textContent = '';
-
-      if (qIndex >= questions.length) {
-        const nextLvl = Math.min(3, parseInt(document.getElementById('levelSelect').value, 10) + 1);
-        if (engine) engine.showStarReward(3, 'ممتاز! خلصت الجولة كلها! 🎉');
-        document.getElementById('levelSelect').value = String(nextLvl);
-        loadLevel(nextLvl);
-        return;
-      }
-
-      currentQ = questions[qIndex];
-      document.getElementById('qCounter').textContent = `Question ${qIndex + 1} / ${questions.length}`;
-      document.getElementById('promptEn').textContent = currentQ.prompt_en;
-      document.getElementById('promptAr').textContent = currentQ.prompt_ar;
-
-      const grid = document.getElementById('huntGrid');
-      grid.innerHTML = '';
-
-      currentQ.options.forEach((opt) => {
-        const tile = document.createElement('div');
-        tile.className = 'hunt-tile';
-        tile.innerHTML = `
-          <span class="tile-emoji">${opt.emoji || opt.image || '🌟'}</span>
-          <div class="tile-arabic">${opt.word}</div>
-        `;
-        tile.onclick = async () => {
-          if (solvedCurrent) return;
-          const isCorrect = parseInt(opt.id, 10) === parseInt(currentQ.target_id, 10);
-          tile.classList.add(isCorrect ? 'correct' : 'wrong');
-          if (engine) {
-            await engine.submitTapAttempt(currentQ.target_id, isCorrect);
-          }
-
-          if (isCorrect) {
-            solvedCurrent = true;
-            document.getElementById('bonusWordLabel').textContent = `${currentQ.target_word} (${currentQ.target_en})`;
-            document.getElementById('sayAloudBox').style.display = 'flex';
-            setTimeout(() => {
-              if (solvedCurrent && !document.getElementById('bonusMicBtn').disabled) {
-                qIndex++;
-                renderQuestion();
-              }
-            }, 4800);
-          }
-        };
-        grid.appendChild(tile);
-      });
-
-      if (engine && engine.speakArabic) {
-        engine.speakArabic(currentQ.speak_text, currentQ.audio_path);
-      } else {
-        fallbackSpeak(currentQ.speak_text, currentQ.audio_path);
-      }
-    }
-
-    document.getElementById('replayBtn').onclick = () => {
-      if (!currentQ) return;
-      if (engine && engine.speakArabic) {
-        engine.speakArabic(currentQ.speak_text, currentQ.audio_path);
-      } else {
-        fallbackSpeak(currentQ.speak_text, currentQ.audio_path);
-      }
+    window.WORD_HUNT_CONFIG = {
+      childId: <?= $childId ?>,
+      initialStars: <?= $totalStars ?>
     };
-
-    document.getElementById('levelSelect').onchange = (e) => loadLevel(e.target.value);
-
-    document.getElementById('bonusMicBtn').onclick = async () => {
-      const btn = document.getElementById('bonusMicBtn');
-      btn.disabled = true;
-      document.getElementById('speechFeedback').textContent = '🎙️ Listening... انطق الكلمة دلوقتي!';
-      try {
-        const res = await engine.recordAndScoreSpeech(currentQ.target_id, 0, 3000);
-        document.getElementById('speechFeedback').textContent = res.passed
-          ? `⭐ Bonus Star Unlocked! Heard: ${res.heard}`
-          : `Good try! Heard: ${res.heard || '...'}`;
-      } catch (e) {
-        document.getElementById('speechFeedback').textContent = 'Microphone unavailable.';
-      } finally {
-        btn.disabled = false;
-        setTimeout(() => { qIndex++; renderQuestion(); }, 1500);
-      }
-    };
-
-    loadLevel(1);
   </script>
+  <script src="/kelma/kelma/web/assets/js/word-hunt.js"></script>
 </body>
 </html>

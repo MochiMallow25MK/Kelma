@@ -129,11 +129,10 @@ require 'includes/header.php';
                 therapy more engaging, personalized, and accessible.
             </p>
         </div>
-
         <div class="col-md-6 text-center">
             <img
-                src="https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800"
-                alt="Happy child smiling"
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQdqzc-TOn-11qg1SLSNfaBolzVEFuLdPpSSNnTxpK2DCFAm0qqa2GMAT7o&s=10"
+                alt="Children learning together"
             >
         </div>
     </div>

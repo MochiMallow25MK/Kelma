@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $gender   = $_POST['gender'] ?? 'Prefer not to say';
         $favColor = $_POST['favourite_color'] ?? '#118AB2';
         $hobby    = trim($_POST['hobby'] ?? '');
-        $pfp      = $_POST['pfp'] ?? '🦁';
+        $pfp      = trim($_POST['pfp'] ?? ($child['pfp'] ?? '🐼'));
 
         $ageBand = '4-6';
         if ($dob) {
@@ -95,7 +95,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (isset($_GET['saved'])) {
     $msg = 'Child profile saved successfully!';
 }
-$avatars = ['🦁','🐱','🐶','🐰','🦊','🐼','🦄','🐸','🐧','🚀','🌟','🎨'];
+
+$avatars = ['🦁','🐱','🐶','🐰','🐼','🦄','🐸','🐧','🚀','🎨'];
+$selectedPfp = (!empty($child['pfp'])) ? $child['pfp'] : '🐼';
+if (!in_array($selectedPfp, $avatars, true)) {
+    $avatars[] = $selectedPfp;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -103,12 +108,44 @@ $avatars = ['🦁','🐱','🐶','🐰','🦊','🐼','🦄','🐸','🐧','🚀
   <meta charset="UTF-8">
   <title>Kelma — Child Profile</title>
   <link rel="stylesheet" href="/kelma/kelma/web/assets/css/kelma-kids.css">
+  <style>
+    .pfp-picker {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 10px 0 18px;
+    }
+    .pfp-option {
+      cursor: pointer;
+      font-size: 2.2rem;
+      padding: 8px 14px;
+      border: 3px solid #E2E8F0;
+      border-radius: 16px;
+      background: #FFFFFF;
+      user-select: none;
+      transition: transform 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
+    }
+    .pfp-option:hover {
+      transform: translateY(-2px);
+      border-color: #94A3B8;
+    }
+    .pfp-option.selected {
+      border-color: #FF5964;
+      background: #FFF1F2;
+      box-shadow: 0 0 0 3px rgba(255, 89, 100, 0.18);
+    }
+    .pfp-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body class="kelma-kids">
   <div class="topbar-kids">
     <a href="/kelma/kelma/web/parent_dashboard.php" class="btn-pill btn-blue">← Back to Parent Dashboard</a>
     <strong>👶 Child Profile &amp; Guardian Settings</strong>
-    <a href="/kelma/kelma/web/games/hub.php?child_id=<?= $childId ?>" class="btn-pill btn-mint">🎮 Open Child Hub</a>
+    <a href="/kelma/kelma/web/games/hub.php?child_id=<?= $childId ?>" class="btn-pill btn-mint">Go to Child Hub</a>
   </div>
 
   <div class="container-kids">
@@ -120,15 +157,16 @@ $avatars = ['🦁','🐱','🐶','🐰','🦊','🐼','🦄','🐸','🐧','🚀
 
     <div class="game-card" style="text-align:left;border-color:<?= htmlspecialchars($child['favourite_color'] ?? '#118AB2') ?>;">
       <h2><?= $child ? 'Edit Profile: ' . htmlspecialchars($child['full_name'] ?? $child['name']) : 'Add Your Child' ?></h2>
-      <form method="POST">
+      <form method="POST" id="childProfileForm">
         <input type="hidden" name="action" value="save_profile">
 
-        <label><strong>Choose Avatar (PFP):</strong></label>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 18px;">
-          <?php foreach ($avatars as $av): ?>
-            <label style="cursor:pointer;font-size:2.2rem;padding:8px 12px;border:3px solid <?= (($child['pfp'] ?? '🦁') === $av) ? '#FF5964' : '#E2E8F0' ?>;border-radius:16px;">
-              <input type="radio" name="pfp" value="<?= $av ?>" <?= (($child['pfp'] ?? '🦁') === $av) ? 'checked' : '' ?> style="display:none;">
-              <?= $av ?>
+        <label><strong>Choose Avatar (PFP):</strong> <span id="selectedPfpBadge" style="font-size:1.5rem;margin-left:6px;"><?= htmlspecialchars($selectedPfp) ?></span></label>
+        <div class="pfp-picker" id="pfpPicker">
+          <?php foreach ($avatars as $idx => $av): ?>
+            <?php $isSelected = ($selectedPfp === $av); ?>
+            <label class="pfp-option <?= $isSelected ? 'selected' : '' ?>" data-pfp="<?= htmlspecialchars($av) ?>">
+              <input type="radio" name="pfp" value="<?= htmlspecialchars($av) ?>" <?= $isSelected ? 'checked' : '' ?>>
+              <span><?= htmlspecialchars($av) ?></span>
             </label>
           <?php endforeach; ?>
         </div>
@@ -156,7 +194,7 @@ $avatars = ['🦁','🐱','🐶','🐰','🦊','🐼','🦄','🐸','🐧','🚀
           </div>
           <div>
             <label><strong>Favourite Hobby</strong></label><br>
-            <input type="text" name="hobby" placeholder="e.g. Drawing, Football, Blocks" value="<?= htmlspecialchars($child['hobby'] ?? '') ?>" style="width:100%;padding:12px;border-radius:12px;border:2px solid #CBD5E1;">
+            <input type="text" id="hobbyInput" name="hobby" placeholder="e.g. Drawing, Football, Blocks" value="<?= htmlspecialchars($child['hobby'] ?? '') ?>" style="width:100%;padding:12px;border-radius:12px;border:2px solid #CBD5E1;">
           </div>
           <div>
             <label><strong>Therapy Language</strong></label><br>
@@ -188,5 +226,46 @@ $avatars = ['🦁','🐱','🐶','🐰','🦊','🐼','🦄','🐸','🐧','🚀
     </div>
     <?php endif; ?>
   </div>
+
+  <script>
+    (function () {
+      var picker = document.getElementById('pfpPicker');
+      var badge = document.getElementById('selectedPfpBadge');
+      if (!picker) return;
+
+      var options = Array.prototype.slice.call(picker.querySelectorAll('.pfp-option'));
+
+      function syncSelection(activeOption) {
+        options.forEach(function (opt) {
+          var isMatch = (opt === activeOption);
+          opt.classList.toggle('selected', isMatch);
+          var radio = opt.querySelector('input[type="radio"]');
+          if (radio) radio.checked = isMatch;
+        });
+        if (activeOption && badge) {
+          badge.textContent = activeOption.getAttribute('data-pfp') || '';
+        }
+      }
+
+      options.forEach(function (opt) {
+        opt.addEventListener('click', function (e) {
+          e.preventDefault();
+          syncSelection(opt);
+        });
+      });
+
+      // Ensure hobby input never alters avatar selection
+      var hobbyInput = document.getElementById('hobbyInput');
+      if (hobbyInput) {
+        hobbyInput.addEventListener('input', function () {
+          var checkedOption = options.find(function (opt) {
+            var r = opt.querySelector('input[type="radio"]');
+            return r && r.checked;
+          });
+          if (checkedOption) syncSelection(checkedOption);
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

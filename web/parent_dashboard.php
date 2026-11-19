@@ -72,10 +72,9 @@ require __DIR__ . '/includes/header.php';
     <?php else: ?>
       <p>No plan yet. Start a game and the agent will choose the first words.</p>
     <?php endif; ?>
-    <a class="btn btn-coral btn-big" href="/kelma/kelma/web/games/say-it.php?child_id=<?= $child_id ?>">▶ Start Play: Say It &amp; Collect It</a>
+    <a class="btn btn-coral btn-big" href="/kelma/kelma/web/games/say-it.php?child_id=<?= $child_id ?>">Play: Say It &amp; Collect It</a>
     &nbsp;
-    <a class="btn btn-mint btn-big" href="/kelma/kelma/web/games/word-hunt.php?child_id=<?= $child_id ?>">🔍 Play Word Hunt</a>
+    <a class="btn btn-mint btn-big" href="/kelma/kelma/web/games/word-hunt.php?child_id=<?= $child_id ?>">Play: Word Hunt</a>
   </div>
-  <p><i>More games, charts, and activity suggestions arrive in later milestones.</i></p>
 </div>
 <?php require __DIR__ . '/includes/footer.php'; ?>
