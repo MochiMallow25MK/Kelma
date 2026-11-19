@@ -141,11 +141,12 @@ def import_folder(folder_path: str):
                         continue
 
                     emoji = EMOJI_MAP.get(en_word, "🌟")
+                    image_val = emoji
                     pos = detect_position(ar_word, phoneme)
                     diff = detect_difficulty(ar_word, category)
                     cue = f"انطق صوت ({phoneme}) بوضوح في كلمة {ar_word}"
                     audio_path = (
-                        "/kelma/web/assets/audio/batteekh.wav"
+                        "/kelma/kelma/web/assets/audio/batteekh.wav"
                         if strip_tashkeel(ar_word) == "بطيخ"
                         else None
                     )
@@ -153,10 +154,10 @@ def import_folder(folder_path: str):
                     cur.execute(
                         """
                         INSERT INTO words
-                        (word, emoji, english_meaning, phoneme, position, difficulty, category, cue, audio_path, language, source_file)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Egyptian Arabic', %s)
+                        (word, emoji, image, english_meaning, phoneme, position, difficulty, category, cue, audio_path, language, source_file)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Egyptian Arabic', %s)
                         """,
-                        (ar_word, emoji, en_word, phoneme, pos, diff, category, cue, audio_path, fname),
+                        (ar_word, emoji, image_val, en_word, phoneme, pos, diff, category, cue, audio_path, fname),
                     )
                     loaded += 1
 
@@ -166,13 +167,13 @@ def import_folder(folder_path: str):
                 cur.execute(
                     """
                     INSERT INTO words
-                    (word, emoji, english_meaning, phoneme, position, difficulty, category, cue, audio_path, language, source_file)
-                    VALUES (%s, '🍮', 'mahalabeya', 'هـ', 'medial', 2, 'Everyday Objects', %s, %s, 'Egyptian Arabic', 'Sample Audio')
+                    (word, emoji, image, english_meaning, phoneme, position, difficulty, category, cue, audio_path, language, source_file)
+                    VALUES (%s, '🍮', '🍮', 'mahalabeya', 'هـ', 'medial', 2, 'Everyday Objects', %s, %s, 'Egyptian Arabic', 'Sample Audio')
                     """,
                     (
                         "مَهَلَّبِيَّة",
                         "انطق صوت (هـ) في وسط كلمة مَهَلَّبِيَّة",
-                        "/kelma/web/assets/audio/mahalabeya.wav",
+                        "/kelma/kelma/web/assets/audio/mahalabeya.wav",
                     ),
                 )
                 loaded += 1

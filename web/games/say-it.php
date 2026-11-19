@@ -1,7 +1,7 @@
 <?php
 $title = 'Say It & Collect It'; require '../includes/config.php'; require_role('parent');
-require '../includes/header.php'; require '/kelma/kelma/web/assets/css/kelma-kids.css'; 
-require '/kelma/kelma/web/assets/js/stimulus-engine.js';
+require '../includes/header.php';
+
 ?>
 <div class="container">
   <div class="game-top">

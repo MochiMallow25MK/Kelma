@@ -4,9 +4,6 @@
   <div>
     <h1>Empowering Children's Speech Through Play &amp; AI!</h1>
     <p>AI-driven speech therapy for kids, parents, and therapists.</p>
-    <div class="buttons">
-      <a class="btn btn-coral btn-big" href="/kelma/kelma/web/register.php">Get Started</a>
-    </div>
   </div>
   <div class="mascot">🦊</div>
 </section>

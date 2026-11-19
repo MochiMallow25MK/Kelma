@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($user && password_verify($pass, $user['password_hash']) && $user['role'] === $role) {
         session_regenerate_id(true);
         $_SESSION['user_id'] = $user['id'];
-        $_SESSION['name']    = $user['full_name'];
+        $_SESSION['full_name']    = $user['full_name'];
         $_SESSION['role']    = $user['role'];
         if ($role === 'parent') {   // remember the parent's first child for the game
             $c = $db->query("SELECT id, name FROM children WHERE parent_id = " . (int)$user['id'] . " LIMIT 1")->fetch_assoc();
