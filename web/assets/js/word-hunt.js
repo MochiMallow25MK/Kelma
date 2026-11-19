@@ -345,7 +345,7 @@
             if ($('speechFeedback')) $('speechFeedback').textContent = data.error;
           } else {
             var bonusStars = parseInt(data.stars || 1, 10);
-            addStars(bonusStars, 'عاش! +' + bonusStars + ' ⭐');
+            addStars(bonusStars, '! أحسنت +' + bonusStars + ' ⭐');
             if ($('speechFeedback')) {
               $('speechFeedback').textContent = '⭐ +' + bonusStars + ' Stars! Heard: "' + (data.heard || currentQ.target_word) + '"';
             }

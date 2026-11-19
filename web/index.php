@@ -3,9 +3,9 @@
 <section class="container hero">
   <div>
     <h1>Empowering Children's Speech Through Play &amp; AI!</h1>
-    <p>AI-driven speech therapy for kids, parents, and therapists.</p>
+    <p>Agentic-RAG driven speech therapy platform for children.</p>
   </div>
-  <div class="mascot">🦊</div>
+  <div class="mascot">🐧</div>
 </section>
 
 <section class="container center" id="modules">
