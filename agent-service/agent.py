@@ -1,95 +1,175 @@
-# The Therapy Agent, built with CrewAI. The LLM decides WHICH tools to call;
-# we then validate its answer so a wrong LLM output can never break the game.
 import json
 import os
-import re
+import requests
+from dotenv import load_dotenv
+from tools import get_child_history, get_db, retrieve_guidance, select_words
 
-from crewai import LLM, Agent, Crew, Task
-from crewai.tools import tool
+load_dotenv()
 
-import tools as T
+VALID_ACTIVITIES = {"say_it", "word_hunt"}
 
+def validate_plan(plan: dict, valid_card_ids: set[int]) -> tuple[bool, str]:
+    """FR-14: Validate sound, level 1..3, activity, and cited knowledge card IDs."""
+    if not isinstance(plan, dict):
+        return False, "Plan is not a dict"
+    if plan.get("activity") not in VALID_ACTIVITIES:
+        return False, "Invalid activity"
+    diff = int(plan.get("difficulty", 1))
+    if diff not in (1, 2, 3):
+        return False, "Invalid difficulty"
+    if not plan.get("phoneme"):
+        return False, "Missing phoneme"
+    cited = plan.get("source_ids", [])
+    if valid_card_ids and not any(int(cid) in valid_card_ids for cid in cited if str(cid).isdigit()):
+        return False, "No valid retrieved source ID cited"
+    return True, "OK"
 
-@tool("get_child_progress")
-def get_child_progress_tool(child_id: int) -> str:
-    """Get the child's average pronunciation score (0-100) and number of attempts for each target sound."""
-    return json.dumps(T.get_child_progress(int(child_id)))
+def call_gemini_rag(prompt: str) -> dict | None:
+    key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not key:
+        return None
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}"
+    resp = requests.post(
+        url,
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2},
+        },
+        timeout=18,
+    )
+    if resp.status_code != 200:
+        return None
+    txt = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+    return json.loads(txt)
 
+def call_groq_rag(prompt: str) -> dict | None:
+    key = os.getenv("GROQ_API_KEY", "").strip()
+    if not key:
+        return None
+    resp = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        json={
+            "model": "llama-3.3-70b-versatile",
+            "messages": [{"role": "user", "content": prompt}],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.2,
+        },
+        timeout=18,
+    )
+    if resp.status_code != 200:
+        return None
+    txt = resp.json()["choices"][0]["message"]["content"]
+    return json.loads(txt)
 
-@tool("select_activity")
-def select_activity_tool(average_score: float) -> str:
-    """Choose the best game for a child, given their average score on their weakest sound (use -1 if no history)."""
-    return json.dumps(T.select_activity(None if average_score < 0 else average_score))
+def build_rule_based_plan(history: dict, cards: list[dict]) -> dict:
+    stats = history.get("phoneme_stats", [])
+    if stats:
+        weakest = stats[0]
+        phoneme = weakest["phoneme"]
+        avg = float(weakest["avg_score"] or 0)
+        difficulty = 1 if avg < 65 else (2 if avg < 85 else 3)
+        activity = "word_hunt" if avg < 50 else "say_it"
+        reason = f"التركيز على صوت ({phoneme}) لأن متوسط الدقة {avg}%، مع التدرج في المستوى {difficulty}."
+    else:
+        phoneme = "ر"
+        difficulty = 1
+        activity = "say_it"
+        reason = "جلسة تأسيسية لصوت (ر) باستخدام كلمات مصرية مألوفة ومصورة."
 
+    return {
+        "activity": activity,
+        "phoneme": phoneme,
+        "difficulty": difficulty,
+        "reason": reason,
+        "source_ids": [c["id"] for c in cards[:2]],
+    }
 
-@tool("select_words")
-def select_words_tool(phoneme: str, difficulty: int) -> str:
-    """Look up practice words in the Word Bank for a sound (r, s or k) and a difficulty level (1 easy to 3 hard)."""
-    return json.dumps(T.select_words(phoneme, difficulty))
+def generate_session_plan(child_id: int) -> dict:
+    # 1. OBSERVE (No PII sent to LLMs)
+    history = get_child_history(child_id)
+    stats = history.get("phoneme_stats", [])
+    target_sound = stats[0]["phoneme"] if stats else "ر"
+    age_band = history["child"].get("age_band", "4-6")
 
+    # 2. RETRIEVE grounded knowledge cards
+    cards = retrieve_guidance(sound=target_sound, age_band=age_band, query_text="Egyptian Arabic speech therapy", k=3)
+    valid_card_ids = {c["id"] for c in cards}
 
-def configured_llms():
-    """Main LLM (Gemini) first, then the backup LLM (Groq). Only the ones with a key are used."""
-    llms = []
-    for prefix in ("", "BACKUP_"):
-        model, key = os.getenv(prefix + "LLM_MODEL"), os.getenv(prefix + "LLM_API_KEY")
-        if model and key:
-            llms.append(LLM(model=model, api_key=key, temperature=0, timeout=20))
-    return llms
+    cards_context = "\n".join(
+        [f"[Card ID={c['id']}] {c['title']} ({c['source_ref']}): {c['text']}" for c in cards]
+    ) or "No cards available."
 
+    prompt = f"""
+You are Kelma's pediatric Egyptian Arabic speech-therapy planner (Agentic RAG).
+Child Age Band: {age_band}
+Phoneme Performance Stats (anonymized): {json.dumps(stats, ensure_ascii=False)}
+Retrieved Clinical Knowledge Cards:
+{cards_context}
 
-def build_plan_with_agent(child_id):
-    """Try each configured LLM in order. Returns a plan dict, or None if all of them fail."""
-    for llm in configured_llms():
-        plan = _run_agent(child_id, llm)
-        if plan:
-            plan["llm"] = llm.model.split("/", 1)[-1]   # e.g. gemini-3.5-flash-lite (shown in the game)
-            return plan
-    return None
+Choose the next therapy session plan as strict JSON with keys:
+- "activity": "say_it" or "word_hunt"
+- "phoneme": target Arabic phoneme (e.g. "{target_sound}")
+- "difficulty": integer 1, 2, or 3
+- "reason": clear explanation in Arabic for parents/therapists citing the retrieved card guidance
+- "source_ids": list of integer Card IDs used from the retrieved cards above
+"""
 
+    plan = None
+    source_type = "agent"
+    llm_used = "rule-based"
 
-def _run_agent(child_id, llm):
-    """One attempt with one LLM."""
+    # 3. REASON & 4. VALIDATE with Fallback Chain (Gemini -> Groq -> Rule-based)
+    for model_name, fn in [("gemini-2.0-flash", call_gemini_rag), ("groq-llama-3.3-70b", call_groq_rag)]:
+        try:
+            candidate = fn(prompt)
+            ok, _ = validate_plan(candidate, valid_card_ids)
+            if ok:
+                plan = candidate
+                llm_used = model_name
+                source_type = "agent"
+                break
+        except Exception:
+            continue
+
+    if not plan:
+        plan = build_rule_based_plan(history, cards)
+        source_type = "fallback"
+        llm_used = "rule-based"
+
+    # 5. ACT: Select words & log decision + cited sources
+    words = select_words(sound=plan["phoneme"], difficulty=int(plan["difficulty"]), count=5)
+    cited_cards = [c for c in cards if c["id"] in [int(x) for x in plan.get("source_ids", []) if str(x).isdigit()]]
+
+    conn = get_db()
+    log_id = None
     try:
-        agent = Agent(
-            role="Speech therapy session planner for young children",
-            goal="Choose the sound, difficulty and game that will help this child most.",
-            backstory="You support a licensed speech therapist. You only use the tools and the data they return.",
-            tools=[get_child_progress_tool, select_activity_tool, select_words_tool],
-            llm=llm, verbose=False, max_iter=6,
-        )
-        task = Task(
-            description=(
-                f"Plan the next practice session for child_id {child_id}.\n"
-                "1. Call get_child_progress. Focus on the sound with the LOWEST average score. "
-                "If there is no history, use sound r.\n"
-                "2. Pick difficulty: average below 50 -> 1, below 75 -> 2, otherwise 3.\n"
-                "3. Call select_activity with that sound's average score (-1 if no history).\n"
-                "4. Call select_words to confirm words exist for that sound and difficulty.\n"
-                'Finish with ONLY this JSON: {"phoneme": "r", "difficulty": 1, "activity": "say_it_and_collect_it", '
-                '"reason": "one short sentence for the parent"}'
-            ),
-            expected_output="A single JSON object with phoneme, difficulty, activity, reason.",
-            agent=agent,
-        )
-        result = Crew(agents=[agent], tasks=[task], verbose=False).kickoff()
-        return _validate(str(result.raw))
-    except Exception as err:
-        print(f"Agent failed with {llm.model}: {err}")
-        return None
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO agent_logs (child_id, activity, sound, difficulty, reason, source, status)
+                VALUES (%s, %s, %s, %s, %s, %s, 'pending')
+                """,
+                (child_id, plan["activity"], plan["phoneme"], int(plan["difficulty"]), plan["reason"], source_type),
+            )
+            log_id = cur.lastrowid
+            for c in cited_cards:
+                cur.execute(
+                    "INSERT IGNORE INTO plan_sources (log_id, card_id, similarity_score) VALUES (%s, %s, %s)",
+                    (log_id, c["id"], c["score"]),
+                )
+        conn.commit()
+    finally:
+        conn.close()
 
-
-def _validate(text):
-    """Pull the JSON out of the LLM answer and make sure every value is safe."""
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        return None
-    data = json.loads(match.group(0))
-    known = {w["phoneme"] for w in T.query("SELECT DISTINCT phoneme FROM words")}
-    phoneme = str(data.get("phoneme", "")).strip("/ ").lower()
-    difficulty = int(data.get("difficulty", 0))
-    activity = data.get("activity")
-    if phoneme not in known or difficulty not in (1, 2, 3) or activity not in T.ACTIVITIES:
-        return None
-    return {"phoneme": phoneme, "difficulty": difficulty, "activity": activity,
-            "reason": str(data.get("reason", "Chosen by the Therapy Agent."))[:250]}
+    return {
+        "log_id": log_id,
+        "source": source_type,
+        "llm": llm_used,
+        "activity": plan["activity"],
+        "phoneme": plan["phoneme"],
+        "difficulty": int(plan["difficulty"]),
+        "reason": plan["reason"],
+        "sources": [{"id": c["id"], "title": c["title"], "source_ref": c["source_ref"], "score": c["score"]} for c in cited_cards],
+        "words": words,
+    }

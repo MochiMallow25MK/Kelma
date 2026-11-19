@@ -1,75 +1,194 @@
-# The four agent tools as plain Python functions (easy to read and test).
-# agent.py wraps three of them as CrewAI tools for the LLM to call.
-from db import query, execute
+import json
+import math
+import os
+import pymysql
+from dotenv import load_dotenv
+from ingest_knowledge import get_embedding, local_hash_embedding
 
-ACTIVITIES = ["say_it_and_collect_it", "word_hunt", "speech_rocket"]
+load_dotenv()
 
-
-def get_child_progress(child_id):
-    """Average diagnostic score and number of attempts for each target sound."""
-    return query(
-        """SELECT w.phoneme, ROUND(AVG(a.diagnostic_score)) AS avg_score, COUNT(*) AS attempts
-           FROM attempts a JOIN words w ON w.id = a.word_id
-           WHERE a.child_id = %s GROUP BY w.phoneme""",
-        (child_id,),
+def get_db():
+    return pymysql.connect(
+        host=os.getenv("DB_HOST", "127.0.0.1"),
+        user=os.getenv("DB_USER", "root"),
+        password=os.getenv("DB_PASS", "Mk2005$#"),
+        database=os.getenv("DB_NAME", "kelma"),
+        charset="utf8mb4",
+        cursorclass=pymysql.cursors.DictCursor,
     )
 
+def cosine_sim(a: list[float], b: list[float]) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a)) or 1.0
+    nb = math.sqrt(sum(y * y for y in b)) or 1.0
+    return dot / (na * nb)
 
-def select_activity(avg_score=None):
-    """TOOL 1 – pick the game that fits the child's level on their weakest sound."""
-    if avg_score is None:
-        return {"activity": "say_it_and_collect_it", "why": "first session, so start with guided articulation"}
-    if avg_score < 60:
-        return {"activity": "say_it_and_collect_it", "why": "low accuracy, so use images, audio and cues"}
-    return {"activity": "speech_rocket", "why": "good accuracy, so use repetition to build consistency"}
+def get_child_history(child_id: int) -> dict:
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, age_band, language FROM children WHERE id = %s", (child_id,))
+            child = cur.fetchone() or {"id": child_id, "age_band": "4-6", "language": "Egyptian Arabic"}
 
+            cur.execute(
+                """
+                SELECT w.phoneme, COUNT(*) AS attempts,
+                       ROUND(AVG(a.diagnostic_score), 1) AS avg_score,
+                       SUM(CASE WHEN a.passed = 1 THEN 1 ELSE 0 END) AS passed_count
+                FROM attempts a
+                JOIN words w ON w.id = a.word_id
+                WHERE a.child_id = %s AND a.attempt_type = 'speech'
+                GROUP BY w.phoneme
+                ORDER BY avg_score ASC
+                """,
+                (child_id,),
+            )
+            phoneme_stats = cur.fetchall()
 
-def select_words(phoneme, difficulty, count=5):
-    """TOOL 2 – pull target words from the Word Bank (closest difficulty first)."""
-    return query(
-        """SELECT id, word, image, phoneme, difficulty FROM words WHERE phoneme = %s
-           ORDER BY ABS(difficulty - %s), RAND() LIMIT %s""",
-        (phoneme, int(difficulty), int(count)),
-    )
+            cur.execute(
+                """
+                SELECT a.word_id, w.word, w.phoneme, a.diagnostic_score, a.heard_text, a.activity
+                FROM attempts a
+                JOIN words w ON w.id = a.word_id
+                WHERE a.child_id = %s
+                ORDER BY a.created_at DESC
+                LIMIT 10
+                """,
+                (child_id,),
+            )
+            recent = cur.fetchall()
+            return {"child": child, "phoneme_stats": phoneme_stats, "recent_attempts": recent}
+    finally:
+        conn.close()
 
+def retrieve_guidance(sound: str, age_band: str = "4-8", query_text: str = "", k: int = 3) -> list[dict]:
+    """FR-12: Retrieve top-k vetted knowledge cards without exposing any child PII."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, title, topic, sound, age_range, text, source_ref, embedding, embedding_model FROM knowledge_cards")
+            cards = cur.fetchall()
 
-def on_failure(word_id, fails):
-    """TOOL 3 – 3-tier escalation: retry, then simplified cue, then easier word."""
-    if fails <= 1:
-        return {"action": "retry"}
-    if fails == 2:
-        return {"action": "cue"}
-    rows = query("SELECT phoneme, difficulty FROM words WHERE id = %s", (word_id,))
-    if not rows:
-        return {"action": "retry"}
-    w = rows[0]
-    easier = query(
-        """SELECT id, word, image, phoneme FROM words
-           WHERE phoneme = %s AND difficulty <= %s AND id <> %s ORDER BY difficulty, RAND() LIMIT 1""",
-        (w["phoneme"], w["difficulty"], word_id),
-    )
-    return {"action": "substitute", "word": easier[0]} if easier else {"action": "retry"}
+        if not cards:
+            return []
 
+        q_str = f"sound {sound} age {age_band} {query_text}".strip()
+        q_emb_api, _ = get_embedding(q_str)
+        q_emb_local = local_hash_embedding(q_str)
 
-def log_progress(child_id, plan, source):
-    """TOOL 4 – record the agent's decision so the therapist can review it."""
-    execute(
-        """INSERT INTO agent_logs (child_id, activity, phoneme, difficulty, reason, source)
-           VALUES (%s, %s, %s, %s, %s, %s)""",
-        (child_id, plan["activity"], plan["phoneme"], plan["difficulty"], plan["reason"][:250], source),
-    )
+        scored = []
+        for c in cards:
+            # Metadata filter: match target sound or universal 'ALL'
+            if c["sound"] not in (sound, "ALL"):
+                continue
+            card_emb = json.loads(c["embedding"]) if c["embedding"] else []
+            q_vec = q_emb_api if len(card_emb) == len(q_emb_api) else q_emb_local
+            sim = cosine_sim(q_vec, card_emb)
+            # Boost exact phoneme match
+            if c["sound"] == sound:
+                sim += 0.25
+            scored.append({
+                "id": c["id"],
+                "title": c["title"],
+                "topic": c["topic"],
+                "sound": c["sound"],
+                "text": c["text"],
+                "source_ref": c["source_ref"],
+                "score": round(min(sim, 1.0), 4),
+            })
 
+        scored.sort(key=lambda x: x["score"], reverse=True)
+        return scored[:k]
+    finally:
+        conn.close()
 
-def rule_based_plan(child_id):
-    """Backup plan without any LLM: practise the weakest sound at a matching level."""
-    progress = get_child_progress(child_id)
-    if not progress:
-        activity = select_activity(None)
-        return {"phoneme": "r", "difficulty": 1, "activity": activity["activity"],
-                "reason": "New child: starting with the /r/ sound at an easy level."}
-    weakest = min(progress, key=lambda p: p["avg_score"])
-    avg = weakest["avg_score"]
-    difficulty = 1 if avg < 50 else (2 if avg < 75 else 3)
-    activity = select_activity(avg)
-    return {"phoneme": weakest["phoneme"], "difficulty": difficulty, "activity": activity["activity"],
-            "reason": f"Sound /{weakest['phoneme']}/ is the weakest (average {avg:.0f}%), so practise it at level {difficulty}."}
+def select_words(sound: str, difficulty: int = 1, count: int = 5, category: str | None = None) -> list[dict]:
+    """FR-09: Query Egyptian Arabic Word Bank with emoji, category, cue, and audio."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            params = [sound, difficulty]
+            cat_sql = ""
+            if category:
+                cat_sql = " AND category = %s"
+                params.append(category)
+            params.append(count)
+
+            cur.execute(
+                f"""
+                SELECT id, word, emoji, english_meaning, phoneme, position, difficulty, category, cue, audio_path
+                FROM words
+                WHERE phoneme = %s AND difficulty = %s {cat_sql}
+                ORDER BY RAND()
+                LIMIT %s
+                """,
+                tuple(params),
+            )
+            rows = cur.fetchall()
+
+            # Fallback: relax difficulty or phoneme if fewer than requested
+            if len(rows) < count:
+                needed = count - len(rows)
+                existing_ids = [r["id"] for r in rows] or [0]
+                placeholders = ",".join(["%s"] * len(existing_ids))
+                cur.execute(
+                    f"""
+                    SELECT id, word, emoji, english_meaning, phoneme, position, difficulty, category, cue, audio_path
+                    FROM words
+                    WHERE id NOT IN ({placeholders})
+                    ORDER BY (phoneme = %s) DESC, ABS(difficulty - %s) ASC, RAND()
+                    LIMIT %s
+                    """,
+                    tuple(existing_ids + [sound, difficulty, needed]),
+                )
+                rows.extend(cur.fetchall())
+            return rows
+    finally:
+        conn.close()
+
+def handle_failure(word_id: int, fails: int) -> dict:
+    """FR-28: Three-tier failure handling (1: retry, 2: cue from bank/RAG, 3+: easier word same sound)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM words WHERE id = %s", (word_id,))
+            w = cur.fetchone()
+            if not w:
+                return {"action": "retry", "message": "حاول مرة تانية! أنت بطل 🌟"}
+
+            if fails <= 1:
+                return {
+                    "action": "retry",
+                    "message": f"قربت جداً! اسمع الكلمة وحاول تقول ({w['word']}) مرة تانية 🎤",
+                }
+            if fails == 2:
+                cue = w.get("cue") or f"ركز على صوت ({w['phoneme']}) في بداية أو وسط الكلمة"
+                return {
+                    "action": "cue",
+                    "cue": cue,
+                    "message": f"تلميح: {cue} 💡",
+                }
+
+            # Tier 3: easier word with the same sound
+            cur.execute(
+                """
+                SELECT id, word, emoji, english_meaning, phoneme, position, difficulty, category, cue, audio_path
+                FROM words
+                WHERE phoneme = %s AND id != %s
+                ORDER BY difficulty ASC, RAND()
+                LIMIT 1
+                """,
+                (w["phoneme"], word_id),
+            )
+            easier = cur.fetchone()
+            if easier:
+                return {
+                    "action": "substitute",
+                    "message": f"يلا نجرب كلمة أسهل بنفس الصوت ({w['phoneme']}): {easier['word']} {easier['emoji']}",
+                    "word": easier,
+                }
+            return {"action": "retry", "message": "أحسنت المحاولة! يلا نكمل للكلمة اللي بعدها ⭐"}
+    finally:
+        conn.close()
