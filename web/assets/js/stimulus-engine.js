@@ -1,3 +1,4 @@
+// FR18: Provide a shared stimulus
 /*
 (function () {
   var API_BASE = '/kelma/kelma/web/api/';

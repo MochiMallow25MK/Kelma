@@ -8,6 +8,8 @@ from db import _connect
 
 load_dotenv()
 
+# FR10: Manage knowledge cards 
+
 SEED_CARDS = [
     {
         "title": "علاج صوت الراء (/ر/) للأطفال في اللهجة المصرية",
@@ -89,6 +91,7 @@ def get_embedding(text: str) -> tuple[list[float], str]:
             pass
     return local_hash_embedding(text), "local-hash-64d"
 
+# FR11: Embed and index knowledge cards
 
 def ingest():
     conn = _connect()

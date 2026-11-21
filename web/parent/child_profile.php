@@ -1,3 +1,4 @@
+// FR5: Manage child profiles
 <?php
 require_once __DIR__ . '/../includes/config.php';
 require_role('parent');
@@ -208,9 +209,11 @@ if (!in_array($selectedPfp, $avatars, true)) {
       </form>
     </div>
 
+    // FR6: Link therapist with guardian consent
+
     <?php if ($child): ?>
     <div class="game-card" style="text-align:left;margin-top:24px;border-color:#06D6A0;">
-      <h3>🩺 Link Speech Therapist with Guardian Consent (FR-06)</h3>
+      <h3>🩺 Link Speech Therapist with Guardian Consent</h3>
       <form method="POST">
         <input type="hidden" name="action" value="link_therapist">
         <label><strong>Therapist Email:</strong></label><br>

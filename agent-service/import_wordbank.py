@@ -8,6 +8,8 @@ from db import _connect
 
 load_dotenv()
 
+# FR8: Import a dataset into the wordbank
+
 EMOJI_MAP = {
     # Verbs
     "drank": "🥤", "saw": "👀", "walked": "🚶", "went out": "🚪", "entered": "🏠",
@@ -80,6 +82,8 @@ EMOJI_MAP = {
     "soap": "🧼", "brush": "🪥", "toothpaste": "🪥", "comb": "💇", "ball": "⚽",
     "car": "🚗", "bicycle": "🚲",
 }
+
+# FR9: Query the wordbank by filters
 
 TASHKEEL_RE = re.compile(r"[\u064B-\u065F\u0670]")
 

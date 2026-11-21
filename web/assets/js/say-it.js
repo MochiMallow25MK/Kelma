@@ -1,3 +1,4 @@
+// FR19: Play Say It & Collect It game
 // Say It & Collect It – game logic (words come from the AI agent via PHP)
 var API = '/kelma/kelma/web/api/';
 var words = [], index = 0, fails = 0, stars = 0, plan = null;
@@ -76,6 +77,7 @@ function showWord() {
 $('listenBtn').onclick = function () { speakWord(words[index]); };
 $('cueSoundBtn').onclick = function () { speakTTS(words[index].phoneme); };
 
+// FR24: Record Speech in the browser 
 // ---------- 2. Record audio and turn it into a 16 kHz WAV file ----------
 var audioCtx, micStream, processor, chunks = [], recording = false;
 
@@ -164,6 +166,7 @@ function sendRecording(wav) {
   }).catch(function () { $('feedback').textContent = 'Something went wrong. Try again!'; });
 }
 
+// FR-28: Handle repeated failure in three tiers
 // ---------- 4. Three-tier failure fallback ----------
 function handleFailure() {
   var form = new FormData();

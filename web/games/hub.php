@@ -1,3 +1,4 @@
+// FR22: Child Learning Hub (Parent View)
 <?php
 require_once __DIR__ . '/../includes/config.php';
 require_role('parent');
@@ -35,6 +36,7 @@ $starStmt->bind_param('i', $childId);
 $starStmt->execute();
 $totalStars = (int)($starStmt->get_result()->fetch_assoc()['total_stars'] ?? 0);
 
+// FR-30: Suggest home activities
 // Latest Agentic RAG recommendation
 $planStmt = $db->prepare('SELECT * FROM agent_logs WHERE child_id = ? ORDER BY id DESC LIMIT 1');
 $planStmt->bind_param('i', $childId);

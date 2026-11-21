@@ -1,3 +1,4 @@
+// FR20: Play Word Hunt game
 // Word Hunt – vocabulary & listening game logic
 (function () {
   var API_BASE = '/kelma/kelma/web/api/';
@@ -226,10 +227,12 @@
         var isCorrect = parseInt(opt.id, 10) === parseInt(currentQ.target_id, 10);
         tile.classList.add(isCorrect ? 'correct' : 'wrong');
 
+        // FR27: Award stars and reward animation 
         if (isCorrect) {
           solvedCurrent = true;
           addStars(1, ' ! أحسنت +1 ⭐');
 
+          // FR23: Offer optional say-aloud 
           // Try optional backend attempt log if available
           try {
             var fd = new FormData();

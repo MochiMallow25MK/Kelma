@@ -1,3 +1,4 @@
+// FR20: Play Word Hunt game
 <?php
 require_once __DIR__ . '/../includes/config.php';
 require_role('parent');

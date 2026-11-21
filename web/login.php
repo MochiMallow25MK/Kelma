@@ -1,3 +1,4 @@
+// FR2: log in with role routing
 <?php
 $title = 'Login'; require 'includes/config.php';
 $error = '';
@@ -12,6 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute();
     $user = $stmt->get_result()->fetch_assoc();
 
+// FR4: Enforce role-based access
+ 
     // Same message for every failure, so attackers learn nothing about which emails exist
     if ($user && password_verify($pass, $user['password_hash']) && $user['role'] === $role) {
         session_regenerate_id(true);

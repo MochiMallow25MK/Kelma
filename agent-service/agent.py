@@ -85,6 +85,8 @@ def build_rule_based_plan(history: dict, cards: list[dict]) -> dict:
         "source_ids": [c["id"] for c in cards[:2]],
     }
 
+# FR13: Generate a session plan
+
 def generate_session_plan(child_id: int) -> dict:
     # 1. OBSERVE (No PII sent to LLMs)
     history = get_child_history(child_id)
@@ -119,6 +121,8 @@ Choose the next therapy session plan as strict JSON with keys:
     source_type = "agent"
     llm_used = "rule-based"
 
+# FR14: Validate agent plans
+
     # 3. REASON & 4. VALIDATE with Fallback Chain (Gemini -> Groq -> Rule-based)
     for model_name, fn in [("gemini-2.0-flash", call_gemini_rag), ("groq-llama-3.3-70b", call_groq_rag)]:
         try:
@@ -132,10 +136,14 @@ Choose the next therapy session plan as strict JSON with keys:
         except Exception:
             continue
 
+# FR15: Fallback when a model fails 
+
     if not plan:
         plan = build_rule_based_plan(history, cards)
         source_type = "fallback"
         llm_used = "rule-based"
+
+# FR16: Log agent decisions and sources
 
     # 5. ACT: Select words & log decision + cited sources
     words = select_words(sound=plan["phoneme"], difficulty=int(plan["difficulty"]), count=5)

@@ -1,3 +1,4 @@
+// FR-29: Show the parent dashboard
 <?php
 $title = 'Parent Dashboard';
 require __DIR__ . '/includes/config.php';
@@ -57,6 +58,8 @@ require __DIR__ . '/includes/header.php';
     <a class="btn btn-yellow" href="/kelma/kelma/web/parent/child_profile.php?child_id=<?= $child_id ?>">👶 Child Profile</a>
     <a class="btn btn-mint" href="/kelma/kelma/web/games/hub.php?child_id=<?= $child_id ?>">🎮 Kids Hub</a>
   </p>
+
+// FR26: Store diagnostic and motivational scores separately
 
   <div class="grid-3">
     <div class="card stat t-blue"><div class="num"><?= (int)$s['total'] ?></div>Practice attempts</div>

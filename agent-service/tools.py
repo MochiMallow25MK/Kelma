@@ -58,6 +58,8 @@ def get_child_history(child_id: int) -> dict:
         conn.close()
 
 
+# FR12: retreive guidance 
+
 def retrieve_guidance(sound: str, age_band: str = "4-8", query_text: str = "", k: int = 3) -> list[dict]:
     """Retrieve top-k vetted knowledge cards without exposing any child PII."""
     conn = get_db()

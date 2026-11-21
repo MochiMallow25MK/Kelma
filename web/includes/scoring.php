@@ -6,6 +6,7 @@
 // Every function returns ['score' => 0-100, 'method' => ..., 'heard' => text or null]
 // or ['error' => 'message'] when the service could not be reached.
 
+// FR25: Score a speech attempt
 function score_audio($wav_path, $target) {
     if (SCORING_MODE === 'groq' && GROQ_API_KEY !== '')  return score_with_groq($wav_path, $target);
     if (SCORING_MODE === 'azure' && AZURE_KEY !== '')    return score_with_azure($wav_path, $target);
