@@ -1,4 +1,3 @@
-// FR5: Manage child profiles
 <?php
 require_once __DIR__ . '/../includes/config.php';
 require_role('parent');
@@ -208,8 +207,6 @@ if (!in_array($selectedPfp, $avatars, true)) {
         </div>
       </form>
     </div>
-
-    // FR6: Link therapist with guardian consent
 
     <?php if ($child): ?>
     <div class="game-card" style="text-align:left;margin-top:24px;border-color:#06D6A0;">

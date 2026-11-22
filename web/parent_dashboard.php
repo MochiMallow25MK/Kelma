@@ -1,4 +1,3 @@
-// FR-29: Show the parent dashboard
 <?php
 $title = 'Parent Dashboard';
 require __DIR__ . '/includes/config.php';

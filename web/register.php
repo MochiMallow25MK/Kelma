@@ -1,4 +1,3 @@
-// FR1: Register an account 
 <?php
 $title = 'Register'; require 'includes/config.php';
 $error = '';

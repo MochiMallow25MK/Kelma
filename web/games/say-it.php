@@ -1,4 +1,3 @@
-// FR19: Play Say It & Collect It game
 <?php
 $title = 'Say It & Collect It'; require '../includes/config.php'; require_role('parent');
 require '../includes/header.php';

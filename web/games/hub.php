@@ -1,4 +1,3 @@
-// FR22: Child Learning Hub (Parent View)
 <?php
 require_once __DIR__ . '/../includes/config.php';
 require_role('parent');

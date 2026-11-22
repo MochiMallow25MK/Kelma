@@ -1,4 +1,3 @@
-// FR20: Play Word Hunt game
 <?php
 require_once __DIR__ . '/../includes/config.php';
 require_role('parent');
@@ -71,8 +70,6 @@ $totalStars = (int)($starStmt->get_result()->fetch_assoc()['total_stars'] ?? 0);
     </div>
 
     <div class="hunt-grid" id="huntGrid"></div>
-
-    <!-- FR-23: Optional Say-Aloud Practice -->
     <div class="mission-banner" id="sayAloudBox" style="display:none;border-color:#FF5964;">
       <div>
         <strong style="font-size:1.15rem;">🎙️ Say "<span id="bonusWordLabel"></span>" aloud to unlock extra stars!</strong>
@@ -81,8 +78,6 @@ $totalStars = (int)($starStmt->get_result()->fetch_assoc()['total_stars'] ?? 0);
       <button type="button" id="bonusMicBtn" class="btn-pill btn-coral">🎤 Say Word Aloud (+Stars)</button>
     </div>
   </div>
-
-  <!-- FR-27: Star-Only Reward Animation Overlay -->
   <div class="star-overlay" id="starOverlay" style="display:none;">
     <div class="star-popup">
       <div class="star-burst" id="starBurst">⭐⭐</div>

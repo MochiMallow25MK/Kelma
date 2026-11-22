@@ -1,4 +1,3 @@
-// FR-31: Show the therapist dashboard
 <?php
 $title = 'Therapist Dashboard';
 require __DIR__ . '/includes/config.php';
