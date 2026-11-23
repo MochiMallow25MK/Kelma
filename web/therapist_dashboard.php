@@ -17,7 +17,7 @@ $plans = $plansRes ? $plansRes->fetch_all(MYSQLI_ASSOC) : [];
 require __DIR__ . '/includes/header.php';
 ?>
 <div class="container">
-  <h1>Therapist Clinical Portal 🧑‍⚕️</h1>
+  <h1>Therapist Clinical Portal 👩‍⚕️🧑‍⚕️</h1>
   <p>Welcome, <?= e($display_name) ?>.</p>
 
   <h2>Recent AI Agent Decisions</h2>

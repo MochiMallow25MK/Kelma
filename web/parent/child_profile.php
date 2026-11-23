@@ -218,7 +218,7 @@ if (!in_array($selectedPfp, $avatars, true)) {
         <div style="margin:10px 0;">
           <label>
             <input type="checkbox" name="guardian_consent" value="1" required>
-            I consent (Egypt PDPL Law No. 151/2020) to share <?= htmlspecialchars($child['full_name'] ?? $child['name']) ?>'s diagnostic scores and session plans with this licensed therapist. No voice recordings are stored.
+            I consent (Egypt PDPL Law No. 151/2020) to share <?= htmlspecialchars($child['full_name'] ?? $child['name']) ?>'s diagnostic scores and session plans with this licensed therapist.
           </label>
         </div>
         <button type="submit" class="btn-pill btn-mint">✅ Grant Consent &amp; Link Therapist</button>

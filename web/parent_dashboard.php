@@ -50,7 +50,7 @@ if ($child_id > 0) {
 require __DIR__ . '/includes/header.php';
 ?>
 <div class="container">
-  <h1>Welcome, <?= e($display_name) ?> 👋</h1>
+  <h1>👨‍👩‍👧 Welcome, <?= e($display_name) ?> 👋</h1>
   <p>
     Child: <span class="badge"><?= e($child_name) ?></span>
     &nbsp;
