@@ -58,8 +58,6 @@ require __DIR__ . '/includes/header.php';
     <a class="btn btn-mint" href="/kelma/kelma/web/games/hub.php?child_id=<?= $child_id ?>">🎮 Kids Hub</a>
   </p>
 
-// FR26: Store diagnostic and motivational scores separately
-
   <div class="grid-3">
     <div class="card stat t-blue"><div class="num"><?= (int)$s['total'] ?></div>Practice attempts</div>
     <div class="card stat t-mint"><div class="num"><?= (int)$s['mastered'] ?></div>Words said correctly</div>
